@@ -10,13 +10,9 @@ Parameters:
   CodeSigningConfigArn:
     Type: String
     Default: ""
-  PermissionsBoundary:
-    Type: String
-    Default: ""
 
 Conditions:
   EnforceCodeSigning: !Not [!Equals [!Ref CodeSigningConfigArn, ""]]
-  UsePermissionsBoundary: !Not [!Equals [!Ref PermissionsBoundary, ""]]
   IsDevEnvironment: !Equals [!Ref Environment, dev]
   IsLocalDevEnvironment: !Equals [!Ref Environment, localdev]
   IsDevLikeEnvironment:
@@ -28,17 +24,6 @@ Globals:
     CodeUri: ..
     Runtime: nodejs18.x
     Architectures: [arm64]
-    PermissionsBoundary:
-      !If [UsePermissionsBoundary, !Ref PermissionsBoundary, !Ref AWS::NoValue]
-    VpcConfig:
-      SecurityGroupIds:
-        - !ImportValue cri-vpc-AWSServicesEndpointSecurityGroupId
-      SubnetIds:
-        - !ImportValue cri-vpc-ProtectedSubnetIdA
-        - !ImportValue cri-vpc-ProtectedSubnetIdB
-    Environment:
-      Variables:
-        NODE_OPTIONS: --enable-source-maps
 
 Resources:
   CanaryInvokerFunction:
@@ -48,11 +33,19 @@ Resources:
       BuildProperties:
         Sourcemap: true
     Properties:
+      Timeout: 60
       Handler: lambdas/canary-invoker/src/canary-invoker-handler.lambdaHandler
       LoggingConfig:
         LogGroup: !Sub /aws/lambda/${AWS::StackName}/CanaryInvokerFunction
       CodeSigningConfigArn:
         !If [EnforceCodeSigning, !Ref CodeSigningConfigArn, !Ref AWS::NoValue]
+      Policies:
+        - Statement:
+            Effect: Allow
+            Action:
+              - synthetics:StartCanary
+              - synthetics:GetCanaryRuns
+            Resource: !Sub arn:aws:synthetics:${AWS::Region}:${AWS::AccountId}:canary:*
 
   CanaryInvokerFunctionLogGroup:
     Type: AWS::Logs::LogGroup
@@ -61,6 +54,9 @@ Resources:
       RetentionInDays: !If [ IsDevLikeEnvironment, 7, 30 ]
 
 Outputs:
+  CanaryInvokerFunction:
+    Description: CanaryInvoker Lambda Function Name
+    Value: !Ref CanaryInvokerFunction
   CanaryInvokerFunctionArn:
     Description: CanaryInvoker Lambda Function ARN
     Value: !GetAtt CanaryInvokerFunction.Arn
