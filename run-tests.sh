@@ -2,7 +2,7 @@
 set -eu
 
 lambda_function_name=$(aws cloudformation describe-stacks --stack-name ipv-cri-check-hmrc-smoke-tests --query "Stacks[0].Outputs[?OutputKey=='CanaryInvokerFunction'].OutputValue" --output text)
-canary_names=("nino-canaries")
+canary_names=("nino-happy" "nino-ci")
 
 for canary_name in "${canary_names[@]}"; do
     payload="{ \"canaryName\": \"$canary_name\" }"
