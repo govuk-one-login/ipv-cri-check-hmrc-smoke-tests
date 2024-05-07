@@ -20,6 +20,7 @@ Conditions:
     !Or [ !Condition IsLocalDevEnvironment, !Condition IsDevEnvironment ]
   IsNotDevEnvironment: !Not
     - !Condition IsDevLikeEnvironment
+  IsProdEnvironment: !Equals [ !Ref Environment, production ]
 
 Globals:
   Function:
@@ -137,7 +138,7 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/${AWS::StackName}/CanaryInvokerFunction
-      RetentionInDays: !If [ IsDevLikeEnvironment, 7, 30 ]
+      RetentionInDays: !If [ IsProdEnvironment, 30, 7 ]
 
   NinoCICanaries:
     Type: AWS::Synthetics::Canary
