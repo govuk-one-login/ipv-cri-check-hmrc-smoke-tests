@@ -11,8 +11,12 @@ Parameters:
   CodeSigningConfigArn:
     Type: String
     Default: ""
+  PermissionsBoundary:
+    Type: String
+    Default: ""
 
 Conditions:
+  UsePermissionsBoundary: !Not [!Equals [!Ref PermissionsBoundary, ""]]
   EnforceCodeSigning: !Not [ !Equals [ !Ref CodeSigningConfigArn, "" ] ]
   IsDevEnvironment: !Equals [ !Ref Environment, dev ]
   IsLocalDevEnvironment: !Equals [ !Ref Environment, localdev ]
@@ -28,6 +32,8 @@ Globals:
     CodeUri: ..
     Runtime: nodejs18.x
     Architectures: [ arm64 ]
+    PermissionsBoundary:
+      !If [ UsePermissionsBoundary, !Ref PermissionsBoundary, !Ref AWS::NoValue ]
 
 Mappings:
   CriButtonOnCoreStub:
@@ -83,6 +89,8 @@ Resources:
   CanariesRole:
     Type: AWS::IAM::Role
     Properties:
+      PermissionsBoundary:
+        !If [ UsePermissionsBoundary, !Ref PermissionsBoundary, !Ref AWS::NoValue ]
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -143,7 +151,7 @@ Resources:
   NinoCICanaries:
     Type: AWS::Synthetics::Canary
     Properties:
-      Name: nino-ci
+      Name: !Sub ${AWS::StackName}-ci
       StartCanaryAfterCreation: true
       ArtifactS3Location: !Sub s3://${CanariesBucket}/ci
       ExecutionRoleArn: !GetAtt CanariesRole.Arn
@@ -270,7 +278,7 @@ Resources:
   NinoHappyCanaries:
     Type: AWS::Synthetics::Canary
     Properties:
-      Name: nino-happy
+      Name: !Sub ${AWS::StackName}-happy
       StartCanaryAfterCreation: true
       ArtifactS3Location: !Sub s3://${CanariesBucket}/happy
       ExecutionRoleArn: !GetAtt CanariesRole.Arn
