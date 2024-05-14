@@ -118,8 +118,6 @@ Resources:
 
   CanariesBucket:
     Type: AWS::S3::Bucket
-    Properties:
-      BucketName: !Sub ${AWS::StackName}-check-canaries-bucket
 
   CanaryInvokerFunction:
     Type: AWS::Serverless::Function
