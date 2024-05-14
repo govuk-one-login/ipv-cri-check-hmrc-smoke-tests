@@ -270,7 +270,7 @@ Resources:
             exports.handler = async () => {
               return await recordedScript();
             };
-          - CoreStubUrl: !Sub "{{resolve:ssm:/check-hmrc-cri-api/core-stub-url}}"
+          - CoreStubUrl: !Sub "{{resolve:ssm:/check-hmrc-cri-api/smoke-tests/core-stub-url}}"
             CoreStubButton: !FindInMap [CriButtonOnCoreStub, "Environment", !Ref Environment]
 
   NinoHappyCanaries:
@@ -381,7 +381,7 @@ Resources:
             exports.handler = async () => {
               return await recordedScript();
             };
-          - CoreStubUrl: !Sub "{{resolve:ssm:/check-hmrc-cri-api/core-stub-url}}"
+          - CoreStubUrl: !Sub "{{resolve:ssm:/check-hmrc-cri-api/smoke-tests/core-stub-url}}"
             CoreStubButton: !FindInMap [CriButtonOnCoreStub, "Environment", !Ref Environment]
 
 Outputs:
