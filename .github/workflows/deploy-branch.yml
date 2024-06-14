@@ -59,7 +59,7 @@ jobs:
           s3-prefix: smoke-tests
           pull-repository: true
           delete-failed-stack: true
-          stack-name-length-limit: 14
+          stack-name-length-limit: 15
           tags: |
             cri:component=ipv-cri-check-hmrc-smoke-tests
             cri:stack-type=preview

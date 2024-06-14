@@ -1,12 +1,12 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Transform: [ AWS::LanguageExtensions, AWS::Serverless-2016-10-31 ]
-Description: "Digital Identity IPV CRI Ipv-Cri-Check-Hmrc-Smoke-Tests API"
+Transform: [AWS::LanguageExtensions, AWS::Serverless-2016-10-31]
+Description: Digital Identity IPV CRI Ipv-Cri-Check-Hmrc-Smoke-Tests API
 
 Parameters:
   Environment:
     Type: String
     Default: dev
-    AllowedValues: [ dev, localdev, build, staging, integration, production ]
+    AllowedValues: [dev, localdev, build, staging, integration, production]
     ConstraintDescription: must be dev, localdev, build, staging, integration or production
   CodeSigningConfigArn:
     Type: String
@@ -17,23 +17,17 @@ Parameters:
 
 Conditions:
   UsePermissionsBoundary: !Not [!Equals [!Ref PermissionsBoundary, ""]]
-  EnforceCodeSigning: !Not [ !Equals [ !Ref CodeSigningConfigArn, "" ] ]
-  IsDevEnvironment: !Equals [ !Ref Environment, dev ]
-  IsLocalDevEnvironment: !Equals [ !Ref Environment, localdev ]
-  IsDevLikeEnvironment:
-    !Or [ !Condition IsLocalDevEnvironment, !Condition IsDevEnvironment ]
-  IsNotDevEnvironment: !Not
-    - !Condition IsDevLikeEnvironment
-  IsProdEnvironment: !Equals [ !Ref Environment, production ]
+  EnforceCodeSigning: !Not [!Equals [!Ref CodeSigningConfigArn, ""]]
+  IsNotDevEnvironment: !Not [!Equals [!Ref Environment, dev]]
 
 Globals:
   Function:
     Timeout: 30
     CodeUri: ..
     Runtime: nodejs18.x
-    Architectures: [ arm64 ]
+    Architectures: [arm64]
     PermissionsBoundary:
-      !If [ UsePermissionsBoundary, !Ref PermissionsBoundary, !Ref AWS::NoValue ]
+      !If [UsePermissionsBoundary, !Ref PermissionsBoundary, !Ref AWS::NoValue]
 
 Mappings:
   CriButtonOnCoreStub:
@@ -43,15 +37,14 @@ Mappings:
       staging: 8
 
 Resources:
-
-  Nino3rdPartyHappyCanariesAlarm:
+  Nino3rdPartyHappyCanaryAlarm:
     Type: AWS::CloudWatch::Alarm
     Condition: IsNotDevEnvironment
     Properties:
-      AlarmDescription: "Alarm for when Nino 3rd Party Canaries Fail"
-      AlarmName: "nino-3rd-party-canaries-failure"
+      AlarmDescription: "NINO 3rd party happy canary fail"
+      AlarmName: "nino-3rd-party-happy-canary-failure"
       ActionsEnabled: true
-      Namespace: "CloudWatchSynthetics"
+      Namespace: SmokeTests
       MetricName: "Failed"
       ComparisonOperator: GreaterThanOrEqualToThreshold
       EvaluationPeriods: 1
@@ -63,16 +56,16 @@ Resources:
         - !ImportValue platform-alarm-warning-alert-topic
       Dimensions:
         - Name: "CanaryName"
-          Value: !Ref NinoHappyCanaries3rdParty
+          Value: !Ref Nino3rdPartyHappyCanary
 
-  NinoHappyCanariesAlarm:
+  NinoHappyCanaryAlarm:
     Type: AWS::CloudWatch::Alarm
     Condition: IsNotDevEnvironment
     Properties:
-      AlarmDescription: "Alarm for when Nino Canaries Fail"
-      AlarmName: "nino-happy-canaries-failure"
+      AlarmDescription: "NINO happy canary fail"
+      AlarmName: "nino-happy-canary-failure"
       ActionsEnabled: true
-      Namespace: "CloudWatchSynthetics"
+      Namespace: SmokeTests
       MetricName: "Failed"
       ComparisonOperator: GreaterThanOrEqualToThreshold
       EvaluationPeriods: 1
@@ -84,16 +77,16 @@ Resources:
         - !ImportValue platform-alarm-warning-alert-topic
       Dimensions:
         - Name: "CanaryName"
-          Value: !Ref NinoHappyCanaries
+          Value: !Ref NinoHappyCanary
 
-  NinoCICanariesAlarm:
+  NinoCICanaryAlarm:
     Type: AWS::CloudWatch::Alarm
     Condition: IsNotDevEnvironment
     Properties:
-      AlarmDescription: "Alarm for when Nino Canaries Fail"
-      AlarmName: "nino-ci-canaries-failure"
+      AlarmDescription: "NINO CI canary fail"
+      AlarmName: "nino-ci-canary-failure"
       ActionsEnabled: true
-      Namespace: "CloudWatchSynthetics"
+      Namespace: SmokeTests
       MetricName: "Failed"
       ComparisonOperator: GreaterThanOrEqualToThreshold
       EvaluationPeriods: 1
@@ -105,16 +98,16 @@ Resources:
         - !ImportValue platform-alarm-warning-alert-topic
       Dimensions:
         - Name: "CanaryName"
-          Value: !Ref NinoCICanaries
+          Value: !Ref NinoCICanary
 
-  Nino3rdPartyCICanariesAlarm:
+  Nino3rdPartyCICanaryAlarm:
     Type: AWS::CloudWatch::Alarm
     Condition: IsNotDevEnvironment
     Properties:
-      AlarmDescription: "Alarm for when Nino 3rd Party Canaries Fail"
+      AlarmDescription: "NINO 3rd party CI canary Fail"
       AlarmName: "nino-3rd-party-ci-failure"
       ActionsEnabled: true
-      Namespace: "CloudWatchSynthetics"
+      Namespace: SmokeTests
       MetricName: "Failed"
       ComparisonOperator: GreaterThanOrEqualToThreshold
       EvaluationPeriods: 1
@@ -126,13 +119,13 @@ Resources:
         - !ImportValue platform-alarm-warning-alert-topic
       Dimensions:
         - Name: "CanaryName"
-          Value: !Ref NinoCICanaries3rdParty
+          Value: !Ref Nino3rdPartyCICanary
 
   CanariesRole:
     Type: AWS::IAM::Role
     Properties:
       PermissionsBoundary:
-        !If [ UsePermissionsBoundary, !Ref PermissionsBoundary, !Ref AWS::NoValue ]
+        !If [UsePermissionsBoundary, !Ref PermissionsBoundary, !Ref AWS::NoValue]
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -150,16 +143,20 @@ Resources:
               - Effect: Allow
                 Resource: "*"
                 Action:
-                  - s3:PutObject
-                  - s3:GetBucketLocation
-                  - s3:ListAllMyBuckets
-                  - cloudwatch:PutMetricData
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
                   - logs:PutLogEvents
 
   CanariesBucket:
     Type: AWS::S3::Bucket
+    Properties:
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
 
   CanaryInvokerFunction:
     Type: AWS::Serverless::Function
@@ -173,22 +170,26 @@ Resources:
       LoggingConfig:
         LogGroup: !Sub /aws/lambda/${AWS::StackName}/CanaryInvokerFunction
       CodeSigningConfigArn:
-        !If [ EnforceCodeSigning, !Ref CodeSigningConfigArn, !Ref AWS::NoValue ]
+        !If [EnforceCodeSigning, !Ref CodeSigningConfigArn, !Ref AWS::NoValue]
       Policies:
         - Statement:
             Effect: Allow
             Action:
               - synthetics:StartCanary
               - synthetics:GetCanaryRuns
-            Resource: !Sub arn:aws:synthetics:${AWS::Region}:${AWS::AccountId}:canary:*
+            Resource:
+              - !Sub arn:aws:synthetics:${AWS::Region}:${AWS::AccountId}:canary:${NinoCICanary}
+              - !Sub arn:aws:synthetics:${AWS::Region}:${AWS::AccountId}:canary:${NinoHappyCanary}
+              - !Sub arn:aws:synthetics:${AWS::Region}:${AWS::AccountId}:canary:${Nino3rdPartyCICanary}
+              - !Sub arn:aws:synthetics:${AWS::Region}:${AWS::AccountId}:canary:${Nino3rdPartyHappyCanary}
 
   CanaryInvokerFunctionLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/${AWS::StackName}/CanaryInvokerFunction
-      RetentionInDays: !If [ IsProdEnvironment, 30, 7 ]
+      RetentionInDays: 30
 
-  NinoCICanaries:
+  NinoCICanary:
     Type: AWS::Synthetics::Canary
     Properties:
       Name: !Sub ${AWS::StackName}-ci
@@ -199,10 +200,10 @@ Resources:
       Schedule:
         Expression: rate(15 minutes)
       Tags:
-        - Key: blueprint
+        - Key: Blueprint
           Value: canaryRecorder
-        - Key: code location
-          Value: ipv-cri-check-hmrc-smoke-tests
+        - Key: Repository
+          Value: govuk-one-login/ipv-cri-check-hmrc-smoke-tests
       Code:
         Handler: exports.handler
         Script:
@@ -315,7 +316,7 @@ Resources:
           - CoreStubUrl: !Sub "{{resolve:ssm:/check-hmrc-cri-api/smoke-tests/core-stub-url}}"
             CoreStubButton: !FindInMap [CriButtonOnCoreStub, "Environment", !Ref Environment]
 
-  NinoHappyCanaries:
+  NinoHappyCanary:
     Type: AWS::Synthetics::Canary
     Properties:
       Name: !Sub ${AWS::StackName}-happy
@@ -326,10 +327,10 @@ Resources:
       Schedule:
         Expression: rate(15 minutes)
       Tags:
-        - Key: blueprint
+        - Key: Blueprint
           Value: canaryRecorder
-        - Key: code location
-          Value: ipv-cri-check-hmrc-smoke-tests
+        - Key: Repository
+          Value: govuk-one-login/ipv-cri-check-hmrc-smoke-tests
       Code:
         Handler: exports.handler
         Script:
@@ -426,21 +427,21 @@ Resources:
           - CoreStubUrl: !Sub "{{resolve:ssm:/check-hmrc-cri-api/smoke-tests/core-stub-url}}"
             CoreStubButton: !FindInMap [CriButtonOnCoreStub, "Environment", !Ref Environment]
 
-  NinoCICanaries3rdParty:
+  Nino3rdPartyCICanary:
     Type: AWS::Synthetics::Canary
     Properties:
-      Name: !Sub ${AWS::StackName}-3rdci
+      Name: !Sub ${AWS::StackName}-3p-ci
       StartCanaryAfterCreation: true
-      ArtifactS3Location: !Sub s3://${CanariesBucket}/ci
+      ArtifactS3Location: !Sub s3://${CanariesBucket}/3rd-party-ci
       ExecutionRoleArn: !GetAtt CanariesRole.Arn
       RuntimeVersion: syn-nodejs-puppeteer-7.0
       Schedule:
         Expression: rate(15 minutes)
       Tags:
-        - Key: blueprint
+        - Key: Blueprint
           Value: canaryRecorder
-        - Key: code location
-          Value: ipv-cri-check-hmrc-smoke-tests
+        - Key: Repository
+          Value: govuk-one-login/ipv-cri-check-hmrc-smoke-tests
       Code:
         Handler: exports.handler
         Script:
@@ -553,21 +554,21 @@ Resources:
           - CoreStubUrl: !Sub "{{resolve:ssm:/check-hmrc-cri-api/smoke-tests/core-stub-url-3rdparty}}"
             CoreStubButton: !FindInMap [CriButtonOnCoreStub, "Environment", !Ref Environment]
 
-  NinoHappyCanaries3rdParty:
+  Nino3rdPartyHappyCanary:
     Type: AWS::Synthetics::Canary
     Properties:
-      Name:  !Sub ${AWS::StackName}-3rd
+      Name: !Sub ${AWS::StackName}-3p
       StartCanaryAfterCreation: true
-      ArtifactS3Location: !Sub s3://${CanariesBucket}/happy
+      ArtifactS3Location: !Sub s3://${CanariesBucket}/3rd-party-happy
       ExecutionRoleArn: !GetAtt CanariesRole.Arn
       RuntimeVersion: syn-nodejs-puppeteer-7.0
       Schedule:
         Expression: rate(15 minutes)
       Tags:
-        - Key: blueprint
+        - Key: Blueprint
           Value: canaryRecorder
-        - Key: code location
-          Value: ipv-cri-check-hmrc-smoke-tests
+        - Key: Repository
+          Value: govuk-one-login/ipv-cri-check-hmrc-smoke-tests
       Code:
         Handler: exports.handler
         Script:
@@ -695,12 +696,12 @@ Resources:
             CoreStubButton: !FindInMap [CriButtonOnCoreStub, "Environment", !Ref Environment]
 
 Outputs:
-  CanaryInvokerFunction:
+  CanaryInvokerFunctionName:
     Description: CanaryInvoker Lambda Function Name
     Value: !Ref CanaryInvokerFunction
   CanaryInvokerFunctionArn:
     Description: CanaryInvoker Lambda Function ARN
     Value: !GetAtt CanaryInvokerFunction.Arn
-  CanaryInvokerFunctionIamRoleArn:
+  CanaryInvokerFunctionRoleArn:
     Description: Implicit IAM Role created for CanaryInvoker function
     Value: !GetAtt CanaryInvokerFunctionRole.Arn
