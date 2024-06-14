@@ -709,9 +709,11 @@ Outputs:
   CanaryInvokerFunctionName:
     Description: CanaryInvoker Lambda Function Name
     Value: !Ref CanaryInvokerFunction
-  CanaryInvokerFunctionArn:
-    Description: CanaryInvoker Lambda Function ARN
-    Value: !GetAtt CanaryInvokerFunction.Arn
-  CanaryInvokerFunctionRoleArn:
-    Description: Implicit IAM Role created for CanaryInvoker function
-    Value: !GetAtt CanaryInvokerFunctionRole.Arn
+  CanaryNames:
+    Description: The names of the all canaries created by the stack
+    Value: !Join
+      - " "
+      - - !Ref NinoCICanary
+        - !Ref NinoHappyCanary
+        - !Ref Nino3rdPartyCICanary
+        - !Ref Nino3rdPartyHappyCanary
