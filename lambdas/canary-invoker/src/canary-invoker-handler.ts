@@ -14,11 +14,17 @@ import {
 const logger = new Logger();
 const client = new SyntheticsClient();
 
+type CanaryRunResult = {
+  canaryName: string;
+  passed: boolean;
+  timestamp: string;
+};
+
 export class CanaryInvokerHandler implements LambdaInterface {
   public async handler(
     event: { canaryName: string },
     _context: unknown
-  ): Promise<void> {
+  ): Promise<CanaryRunResult> {
     try {
       const canaryName = event.canaryName;
       logger.info(`Executing canary ${canaryName}`);
@@ -41,7 +47,11 @@ export class CanaryInvokerHandler implements LambdaInterface {
         logger.error(`Canary ${canaryName} has failed`);
       }
 
-      return;
+      return {
+        canaryName: canaryName,
+        passed: canaryPassed,
+        timestamp: new Date().toISOString(),
+      };
     } catch (error) {
       logger.error(`Error executing canary: ${error}`);
       throw error;
