@@ -1,6 +1,6 @@
-FROM amazon/aws-cli:2.15.43
+FROM amazon/aws-cli:2.16.7
 
-WORKDIR /
+RUN yum -y install jq
 
 COPY run-tests.sh /
 
