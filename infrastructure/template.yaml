@@ -134,20 +134,26 @@ Resources:
           - Effect: Allow
             Action: sts:AssumeRole
             Principal:
-              Service:
-                - synthetics.amazonaws.com
-                - lambda.amazonaws.com
+              Service: lambda.amazonaws.com
       Policies:
         - PolicyName: NinoCanariesExecutionRole
           PolicyDocument:
             Version: 2012-10-17
             Statement:
               - Effect: Allow
+                Resource: !GetAtt CanariesBucket.Arn
+                Action: s3:GetBucketLocation
+              - Effect: Allow
+                Resource: !Sub ${CanariesBucket.Arn}/*
+                Action: s3:PutObject
+              - Effect: Allow
                 Resource: "*"
                 Action:
+                  - s3:ListAllMyBuckets
+                  - logs:PutLogEvents
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
-                  - logs:PutLogEvents
+                  - cloudwatch:PutMetricData
 
   CanariesBucket:
     Type: AWS::S3::Bucket
@@ -170,15 +176,17 @@ Resources:
       Timeout: 60
       Handler: lambdas/canary-invoker/src/canary-invoker-handler.lambdaHandler
       LoggingConfig:
-        LogGroup: !Sub /aws/lambda/${AWS::StackName}/CanaryInvokerFunction
+        LogGroup: !Ref CanaryInvokerFunctionLogGroup
       CodeSigningConfigArn:
         !If [EnforceCodeSigning, !Ref CodeSigningConfigArn, !Ref AWS::NoValue]
       Policies:
         - Statement:
             Effect: Allow
             Action:
+              - synthetics:GetCanary
+              - synthetics:StopCanary
               - synthetics:StartCanary
-              - synthetics:GetCanaryRuns
+              - synthetics:DescribeCanariesLastRun
             Resource:
               - !Sub arn:aws:synthetics:${AWS::Region}:${AWS::AccountId}:canary:${NinoCICanary}
               - !Sub arn:aws:synthetics:${AWS::Region}:${AWS::AccountId}:canary:${NinoHappyCanary}
