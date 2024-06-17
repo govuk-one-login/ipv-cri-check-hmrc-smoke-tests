@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: post-merge-build
+  cancel-in-progress: false
+
 jobs:
   deploy:
     name: Package for build

@@ -25,7 +25,7 @@ jobs:
       cache-restore-keys: ${{ steps.build.outputs.cache-restore-keys }}
     steps:
       - name: Build SAM application
-        uses: govuk-one-login/github-actions/sam/build-application@e6b6ed890b35904e1be79f7f35ffec983fa4d9db
+        uses: govuk-one-login/github-actions/sam/build-application@ac71be4023195de11f6cbcd07d56e6ab964e4e9e
         id: build
         with:
           template: infrastructure/template.yaml
@@ -48,7 +48,7 @@ jobs:
       stack-name: ${{ steps.deploy.outputs.stack-name }}
     steps:
       - name: Deploy stack
-        uses: govuk-one-login/github-actions/sam/deploy-stack@e6b6ed890b35904e1be79f7f35ffec983fa4d9db
+        uses: govuk-one-login/github-actions/sam/deploy-stack@ac71be4023195de11f6cbcd07d56e6ab964e4e9e
         id: deploy
         with:
           sam-deployment-bucket: ${{ vars.DEPLOYMENT_ARTIFACTS_BUCKET }}
@@ -59,7 +59,7 @@ jobs:
           s3-prefix: smoke-tests
           pull-repository: true
           delete-failed-stack: true
-          stack-name-length-limit: 14
+          stack-name-length-limit: 15
           tags: |
             cri:component=ipv-cri-check-hmrc-smoke-tests
             cri:stack-type=preview

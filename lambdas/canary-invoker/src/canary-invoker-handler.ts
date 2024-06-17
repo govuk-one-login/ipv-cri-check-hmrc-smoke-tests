@@ -1,10 +1,11 @@
 import { LambdaInterface } from "@aws-lambda-powertools/commons";
 import { Logger } from "@aws-lambda-powertools/logger";
 import {
+  CanaryRun,
+  CanaryRunState,
   CanaryState,
+  DescribeCanariesLastRunCommand,
   GetCanaryCommand,
-  GetCanaryResponse,
-  GetCanaryRunsCommand,
   StartCanaryCommand,
   StopCanaryCommand,
   SyntheticsClient,
@@ -13,77 +14,94 @@ import {
 const logger = new Logger();
 const client = new SyntheticsClient();
 
+type CanaryRunResult = {
+  canaryName: string;
+  passed: boolean;
+  timestamp: string;
+};
+
 export class CanaryInvokerHandler implements LambdaInterface {
   public async handler(
     event: { canaryName: string },
     _context: unknown
-  ): Promise<void> {
+  ): Promise<CanaryRunResult> {
     try {
-      logger.info(`Running ${event.canaryName}`);
+      const canaryName = event.canaryName;
+      logger.info(`Executing canary ${canaryName}`);
 
-      const previousRunId = await getPreviousCanaryRunId(event.canaryName);
-
-      let canary = await getLatestCanaryStatus(event.canaryName);
-
-      if (canary.Canary?.Status?.State == CanaryState.RUNNING) {
-        logger.info(event.canaryName + " is already running, stopping...");
-
-        const stopCanary = await client.send(
-          new StopCanaryCommand({
-            Name: event.canaryName,
-          })
-        );
-
-        const stopCanaryStatusCode = stopCanary.$metadata.httpStatusCode;
-
-        if (stopCanaryStatusCode !== 200) {
-          throw new Error(
-            `Failed to stop already running canary, received ${stopCanaryStatusCode}`
-          );
-        }
+      if (await isCanaryRunning(canaryName)) {
+        await stopCanary(canaryName);
       }
 
-      canary = await getLatestCanaryStatus(event.canaryName);
+      const lastCanaryRunId = await getLastCanaryRunId(canaryName);
+      await startCanary(canaryName);
 
-      if (canary.Canary?.Status?.State != CanaryState.STOPPED) {
-        await waitForCanaryToStop(event.canaryName);
-      }
-
-      logger.info("Starting canary " + event.canaryName);
-      await startCanary(event.canaryName);
-
-      const hasPassed = await waitForCanaryToPass(
-        event.canaryName,
-        previousRunId
+      const canaryPassed = await waitForCanaryToPass(
+        canaryName,
+        lastCanaryRunId
       );
 
-      if (hasPassed) {
-        logger.info(event.canaryName + " has passed");
-        return;
+      if (canaryPassed) {
+        logger.info(`Canary ${canaryName} has passed`);
+      } else {
+        logger.error(`Canary ${canaryName} has failed`);
       }
 
-      logger.error(event.canaryName + " has failed");
+      return {
+        canaryName: canaryName,
+        passed: canaryPassed,
+        timestamp: new Date().toISOString(),
+      };
     } catch (error) {
-      logger.error("Error executing canary:" + error);
+      logger.error(`Error executing canary: ${error}`);
       throw error;
     }
   }
 }
 
-async function waitForCanaryToStop(canaryName: string): Promise<void> {
+async function stopCanary(canaryName: string) {
+  logger.info(`Stopping running canary ${canaryName}`);
+
+  const stopCanaryResponse = await client.send(
+    new StopCanaryCommand({ Name: canaryName })
+  );
+
+  const stopCanaryStatusCode = stopCanaryResponse.$metadata.httpStatusCode;
+
+  if (stopCanaryStatusCode !== 200) {
+    throw new Error(
+      `Failed to stop canary with status ${stopCanaryStatusCode}`
+    );
+  }
+
+  await waitForCanaryToStop(canaryName);
+}
+
+async function startCanary(canaryName: string) {
+  logger.info(`Starting canary ${canaryName}`);
+
+  const startCanaryResponse = await client.send(
+    new StartCanaryCommand({ Name: canaryName })
+  );
+
+  const startCanaryStatusCode = startCanaryResponse.$metadata.httpStatusCode;
+
+  if (startCanaryStatusCode !== 200) {
+    throw new Error(
+      `Failed to invoke canary received ${startCanaryStatusCode}`
+    );
+  }
+}
+
+async function waitForCanaryToStop(canaryName: string) {
   return new Promise<void>((resolve) => {
     const interval = setInterval(async () => {
-      const canary = await client.send(
-        new GetCanaryCommand({
-          Name: canaryName,
-        })
-      );
-      if (canary.Canary?.Status?.State == CanaryState.STOPPED) {
+      if (await isCanaryStopped(canaryName)) {
         clearInterval(interval);
-        logger.info("Stopped existing canary run successfully");
+        logger.info(`Canary ${canaryName} stopped`);
         resolve();
       }
-    }, 5000);
+    }, 1000);
   });
 }
 
@@ -91,57 +109,75 @@ async function waitForCanaryToPass(
   canaryName: string,
   previousRunId: string
 ): Promise<boolean> {
+  logger.info(`Waiting for current run of canary ${canaryName} to complete`);
   return new Promise<boolean>((resolve) => {
     const interval = setInterval(async () => {
-      const canaryRuns = await client.send(
-        new GetCanaryRunsCommand({
-          Name: canaryName,
-        })
-      );
-      const runStatus = canaryRuns?.CanaryRuns?.at(0);
-      if (runStatus?.Id !== previousRunId) {
+      const currentCanaryRun = await getLastCanaryRun(canaryName);
+
+      if (currentCanaryRun.Id !== previousRunId) {
         clearInterval(interval);
-        if (runStatus?.Status?.State === "PASSED") {
+        if (currentCanaryRun?.Status?.State === CanaryRunState.PASSED) {
           resolve(true);
         } else {
           resolve(false);
         }
       }
-    }, 5000);
+    }, 1000);
   });
 }
 
-async function getLatestCanaryStatus(
-  canaryName: string
-): Promise<GetCanaryResponse> {
-  return client.send(
-    new GetCanaryCommand({
-      Name: canaryName,
-    })
-  );
-}
-
-async function getPreviousCanaryRunId(canaryName: string): Promise<string> {
-  const previousRuns = await client.send(
-    new GetCanaryRunsCommand({
-      Name: canaryName,
-    })
-  );
-  return previousRuns?.CanaryRuns?.at(0)?.Id || "";
-}
-
-async function startCanary(canaryName: string) {
-  const startCanary = await client.send(
-    new StartCanaryCommand({ Name: canaryName })
+async function getCanaryState(canaryName: string): Promise<CanaryState> {
+  const getCanaryResponse = await client.send(
+    new GetCanaryCommand({ Name: canaryName })
   );
 
-  const startCanaryStatusCode = startCanary.$metadata.httpStatusCode;
+  const canaryState = getCanaryResponse.Canary?.Status?.State;
 
-  if (startCanaryStatusCode !== 200) {
-    throw new Error(
-      `Failed to invoke canary received ${startCanaryStatusCode}`
-    );
+  if (!canaryState) {
+    throw new Error(`Could not get state of canary ${canaryName}`);
   }
+
+  return canaryState;
+}
+
+async function getLastCanaryRun(canaryName: string): Promise<CanaryRun> {
+  const canaryLastRunsResponse = await client.send(
+    new DescribeCanariesLastRunCommand({
+      Names: [canaryName],
+      MaxResults: 1,
+    })
+  );
+
+  const canaryLastRun = canaryLastRunsResponse.CanariesLastRun?.find(
+    (lastRun) => lastRun.CanaryName == canaryName
+  );
+
+  if (!canaryLastRun?.LastRun) {
+    throw new Error(`Could not get last run of canary ${canaryName}`);
+  }
+
+  return canaryLastRun.LastRun;
+}
+
+async function getLastCanaryRunId(canaryName: string): Promise<string> {
+  const lastCanaryRun = await getLastCanaryRun(canaryName);
+  const lastCanaryRunId = lastCanaryRun.Id;
+
+  if (!lastCanaryRunId) {
+    throw new Error(`Could not get ID of last run of canary ${canaryName}`);
+  }
+
+  return lastCanaryRunId;
+}
+
+async function isCanaryRunning(canaryName: string): Promise<boolean> {
+  const canaryState = await getCanaryState(canaryName);
+  return canaryState == CanaryState.RUNNING;
+}
+
+async function isCanaryStopped(canaryName: string): Promise<boolean> {
+  const canaryState = await getCanaryState(canaryName);
+  return canaryState == CanaryState.STOPPED;
 }
 
 const handlerClass = new CanaryInvokerHandler();
