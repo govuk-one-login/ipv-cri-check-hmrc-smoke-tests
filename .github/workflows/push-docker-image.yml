@@ -1,8 +1,9 @@
 name: Push Docker image
 
 on:
+  pull_request:
   push:
-    branches: [main, smoke-tests-docker-image-dev]
+    branches: [main]
 
 permissions:
   id-token: write
@@ -23,7 +24,7 @@ jobs:
     steps:
       - name: Push Docker image
         uses: govuk-one-login/github-actions/aws/ecr/build-docker-image@ac71be4023195de11f6cbcd07d56e6ab964e4e9e
-        if: ${{ github.ref_name != smoke-tests-docker-image-dev || matrix.environment == development }}
+        if: ${{ github.event_name != 'pull_request' || matrix.environment == 'development' }}
         with:
           immutable-tags: false
           image-version: ${{ github.sha }}
