@@ -34,5 +34,7 @@ jobs:
           dockerfile: test-image/Dockerfile
           build-path: test-image
           image-tags: |
-            smoke-tests-${{ github.head_ref || github.ref_name }}
+            ${{ github.head_ref || github.ref_name }}-${{ github.sha }}
+            ${{ github.head_ref || github.ref_name }}
+            smoke-tests-${{ github.sha }}
             latest
