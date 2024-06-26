@@ -2,28 +2,23 @@ import {
   CloudFormationClient,
   DescribeStacksCommand,
 } from "@aws-sdk/client-cloudformation";
-import { CanaryInvokerHandler } from "../src/canary-invoker-handler";
+import { CanaryRunnerHandler } from "../src/canary-runner-handler";
 
 jest.setTimeout(50 * 1000 * 4);
 
+let canaryRunner: CanaryRunnerHandler;
 const cloudFormation = new CloudFormationClient();
-const canaryInvoker = new CanaryInvokerHandler();
+
+beforeAll(async () => {
+  process.env.CANARY_NAMES = await getCanaryNames();
+  const canaryModule = await import("../src/canary-runner-handler");
+  canaryRunner = new canaryModule.CanaryRunnerHandler();
+});
 
 describe("Run canaries", () => {
-  it("Should run all canaries", async () => {
-    const canaryNames = await getCanaryNames();
-    let allPassed = true;
-
-    for (const canary of canaryNames) {
-      const canaryRunResult = await canaryInvoker.handler(
-        { canaryName: canary },
-        {}
-      );
-
-      allPassed = allPassed && canaryRunResult.passed;
-    }
-
-    expect(allPassed).toBe(true);
+  it("All canaries should pass", async () => {
+    const canariesResult = await canaryRunner.handler({}, {});
+    expect(canariesResult.success).toBe(true);
   });
 });
 
@@ -46,5 +41,5 @@ async function getCanaryNames() {
     throw new Error(`Could not get canary names for stack ${stackName}`);
   }
 
-  return canaryNames.split(" ");
+  return canaryNames;
 }
