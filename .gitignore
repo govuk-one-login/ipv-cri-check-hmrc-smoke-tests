@@ -130,4 +130,4 @@ dotenv
 
 .idea/
 
-canary-results/
+canary-results.json

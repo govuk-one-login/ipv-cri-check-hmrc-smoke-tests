@@ -12,57 +12,76 @@ import {
 } from "@aws-sdk/client-synthetics";
 
 const logger = new Logger();
-const client = new SyntheticsClient();
+const synthetics = new SyntheticsClient();
 
-type CanaryRunResult = {
-  canaryName: string;
-  passed: boolean;
+const canaryNames = process.env.CANARY_NAMES;
+
+type CanariesResult = {
+  success: boolean;
   timestamp: string;
 };
 
-export class CanaryInvokerHandler implements LambdaInterface {
+export class CanaryRunnerHandler implements LambdaInterface {
   public async handler(
-    event: { canaryName: string },
+    _event: unknown,
     _context: unknown
-  ): Promise<CanaryRunResult> {
+  ): Promise<CanariesResult> {
     try {
-      const canaryName = event.canaryName;
-      logger.info(`Executing canary ${canaryName}`);
+      const canaries = canaryNames?.split(",");
 
-      if (await isCanaryRunning(canaryName)) {
-        await stopCanary(canaryName);
+      if (!canaries) {
+        logger.error("Canary names not set in the environment");
+        return canariesResult(false);
       }
 
-      const lastCanaryRunId = await getLastCanaryRunId(canaryName);
-      await startCanary(canaryName);
+      logger.info(`Running ${canaries.length} canaries`);
+      let success = true;
 
-      const canaryPassed = await waitForCanaryToPass(
-        canaryName,
-        lastCanaryRunId
-      );
+      for (const [index, canary] of canaries.entries()) {
+        logger.info(
+          `[${index + 1}/${canaries.length}] Executing canary ${canary}`
+        );
 
-      if (canaryPassed) {
-        logger.info(`Canary ${canaryName} has passed`);
-      } else {
-        logger.error(`Canary ${canaryName} has failed`);
+        try {
+          const canaryResult = await executeCanary(canary);
+          success &&= canaryResult;
+        } catch (canaryError) {
+          logger.error(`Run of canary ${canary} failed: ${canaryError}`);
+          success = false;
+        }
       }
 
-      return {
-        canaryName: canaryName,
-        passed: canaryPassed,
-        timestamp: new Date().toISOString(),
-      };
+      return canariesResult(success);
     } catch (error) {
-      logger.error(`Error executing canary: ${error}`);
+      logger.error(`Error running canaries: ${error}`);
       throw error;
     }
   }
 }
 
+async function executeCanary(canaryName: string): Promise<boolean> {
+  if (await isCanaryRunning(canaryName)) {
+    await stopCanary(canaryName);
+  }
+
+  const lastCanaryRunId = await getLastCanaryRunId(canaryName);
+  await startCanary(canaryName);
+
+  const canaryPassed = await waitForCanaryToPass(canaryName, lastCanaryRunId);
+
+  if (canaryPassed) {
+    logger.info(`Canary ${canaryName} has passed`);
+  } else {
+    logger.error(`Canary ${canaryName} has failed`);
+  }
+
+  return canaryPassed;
+}
+
 async function stopCanary(canaryName: string) {
   logger.info(`Stopping running canary ${canaryName}`);
 
-  const stopCanaryResponse = await client.send(
+  const stopCanaryResponse = await synthetics.send(
     new StopCanaryCommand({ Name: canaryName })
   );
 
@@ -80,7 +99,7 @@ async function stopCanary(canaryName: string) {
 async function startCanary(canaryName: string) {
   logger.info(`Starting canary ${canaryName}`);
 
-  const startCanaryResponse = await client.send(
+  const startCanaryResponse = await synthetics.send(
     new StartCanaryCommand({ Name: canaryName })
   );
 
@@ -127,7 +146,7 @@ async function waitForCanaryToPass(
 }
 
 async function getCanaryState(canaryName: string): Promise<CanaryState> {
-  const getCanaryResponse = await client.send(
+  const getCanaryResponse = await synthetics.send(
     new GetCanaryCommand({ Name: canaryName })
   );
 
@@ -141,7 +160,7 @@ async function getCanaryState(canaryName: string): Promise<CanaryState> {
 }
 
 async function getLastCanaryRun(canaryName: string): Promise<CanaryRun> {
-  const canaryLastRunsResponse = await client.send(
+  const canaryLastRunsResponse = await synthetics.send(
     new DescribeCanariesLastRunCommand({
       Names: [canaryName],
       MaxResults: 1,
@@ -180,5 +199,9 @@ async function isCanaryStopped(canaryName: string): Promise<boolean> {
   return canaryState == CanaryState.STOPPED;
 }
 
-const handlerClass = new CanaryInvokerHandler();
+function canariesResult(success: boolean): CanariesResult {
+  return { success: success, timestamp: new Date().toISOString() };
+}
+
+const handlerClass = new CanaryRunnerHandler();
 export const lambdaHandler = handlerClass.handler.bind(handlerClass);

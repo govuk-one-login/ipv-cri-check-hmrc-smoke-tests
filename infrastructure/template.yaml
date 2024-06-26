@@ -166,37 +166,51 @@ Resources:
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
 
-  CanaryInvokerFunction:
+  CanaryRunnerFunction:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
         Sourcemap: true
     Properties:
-      Timeout: 60
-      Handler: lambdas/canary-invoker/src/canary-invoker-handler.lambdaHandler
+      Timeout: 240
+      Handler: lambdas/canary-runner/src/canary-runner-handler.lambdaHandler
+      FunctionName: !Select [3, !Split ["/", !Ref CanaryRunnerFunctionLogGroup]]
+      CodeSigningConfigArn: !If [EnforceCodeSigning, !Ref CodeSigningConfigArn, !Ref AWS::NoValue]
       LoggingConfig:
-        LogGroup: !Ref CanaryInvokerFunctionLogGroup
-      CodeSigningConfigArn:
-        !If [EnforceCodeSigning, !Ref CodeSigningConfigArn, !Ref AWS::NoValue]
+        LogGroup: !Ref CanaryRunnerFunctionLogGroup
+      Environment:
+        Variables:
+          CANARY_NAMES: !Join
+            - ","
+            - - !Ref NinoCICanary
+              - !Ref NinoHappyCanary
+              - !Ref Nino3rdPartyCICanary
+              - !Ref Nino3rdPartyHappyCanary
       Policies:
         - Statement:
-            Effect: Allow
-            Action:
-              - synthetics:GetCanary
-              - synthetics:StopCanary
-              - synthetics:StartCanary
-              - synthetics:DescribeCanariesLastRun
-            Resource:
-              - !Sub arn:aws:synthetics:${AWS::Region}:${AWS::AccountId}:canary:${NinoCICanary}
-              - !Sub arn:aws:synthetics:${AWS::Region}:${AWS::AccountId}:canary:${NinoHappyCanary}
-              - !Sub arn:aws:synthetics:${AWS::Region}:${AWS::AccountId}:canary:${Nino3rdPartyCICanary}
-              - !Sub arn:aws:synthetics:${AWS::Region}:${AWS::AccountId}:canary:${Nino3rdPartyHappyCanary}
+#            - Sid: AllowDescribeSmokeTestsStack
+#              Effect: Allow
+#              Action: cloudformation:DescribeStacks
+#              Resource: !Ref AWS::StackId
+              # Resource: !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/smoke-tests/*
+            - Sid: AllowRunCanaries
+              Effect: Allow
+              Action:
+                - synthetics:GetCanary
+                - synthetics:StopCanary
+                - synthetics:StartCanary
+                - synthetics:DescribeCanariesLastRun
+              Resource:
+                - !Sub arn:aws:synthetics:${AWS::Region}:${AWS::AccountId}:canary:${NinoCICanary}
+                - !Sub arn:aws:synthetics:${AWS::Region}:${AWS::AccountId}:canary:${NinoHappyCanary}
+                - !Sub arn:aws:synthetics:${AWS::Region}:${AWS::AccountId}:canary:${Nino3rdPartyCICanary}
+                - !Sub arn:aws:synthetics:${AWS::Region}:${AWS::AccountId}:canary:${Nino3rdPartyHappyCanary}
 
-  CanaryInvokerFunctionLogGroup:
+  CanaryRunnerFunctionLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub /aws/lambda/${AWS::StackName}/CanaryInvokerFunction
+      LogGroupName: !Sub /aws/lambda/${AWS::StackName}-CanaryRunnerFunction
       RetentionInDays: 30
 
   NinoCICanary:
@@ -216,8 +230,7 @@ Resources:
           Value: govuk-one-login/ipv-cri-check-hmrc-smoke-tests
       Code:
         Handler: exports.handler
-        Script:
-          !Sub
+        Script: !Sub
           - |
             var synthetics = require('Synthetics');
             const log = require('SyntheticsLogger');
@@ -343,8 +356,7 @@ Resources:
           Value: govuk-one-login/ipv-cri-check-hmrc-smoke-tests
       Code:
         Handler: exports.handler
-        Script:
-          !Sub
+        Script: !Sub
           - |
             var synthetics = require('Synthetics');
             const log = require('SyntheticsLogger');
@@ -454,8 +466,7 @@ Resources:
           Value: govuk-one-login/ipv-cri-check-hmrc-smoke-tests
       Code:
         Handler: exports.handler
-        Script:
-          !Sub
+        Script: !Sub
           - |
             var synthetics = require('Synthetics');
             const log = require('SyntheticsLogger');
@@ -581,8 +592,7 @@ Resources:
           Value: govuk-one-login/ipv-cri-check-hmrc-smoke-tests
       Code:
         Handler: exports.handler
-        Script:
-          !Sub
+        Script: !Sub
           - |
             var synthetics = require('Synthetics');
             const log = require('SyntheticsLogger');
@@ -705,14 +715,34 @@ Resources:
           - CoreStubUrl: !Sub "{{resolve:ssm:/check-hmrc-cri-api/smoke-tests/core-stub-url-3rdparty}}"
             CoreStubButton: !FindInMap [CriButtonOnCoreStub, "Environment", !Ref Environment]
 
+#  PipelineTestRolePolicy:
+#    Type: AWS::IAM::ManagedPolicy
+#    Properties:
+#      PolicyDocument:
+#        Version: 2012-10-17
+#        Statement:
+#          - Sid: AllowInvokeCanaryRunnerFunction
+#            Effect: Allow
+#            Action: lambda:InvokeFunction
+#            Resource: !GetAtt CanaryRunnerFunction.Arn
+#            Condition:
+#              StringEquals:
+#                aws:PrincipalType: AssumedRole
+#                aws:PrincipalAccount: !Ref AWS::AccountId
+#                aws:PrincipalTag/RoleType: PipelineDeploymentTest
+#              ArnLike:
+#                aws:PrincipalArn:
+#                  - !Sub arn:${AWS::Partition}:sts::${AWS::AccountId}:assumed-role/*-common-cri-*
+#                  - !Sub arn:${AWS::Partition}:sts::${AWS::AccountId}:assumed-role/*-check-hmrc-cri-*
+#              StringLike:
+#                aws:userid: ["*-check-hmrc-cri-*", "*-common-cri-*"] # ignore
+#                aws:PrincipalTag/ApplicationStackName: ["check-hmrc-cri-*", "common-cri-*"]
+
 Outputs:
-  CanaryInvokerFunctionName:
-    Description: CanaryInvoker Lambda Function Name
-    Value: !Ref CanaryInvokerFunction
   CanaryNames:
     Description: The names of the all canaries created by the stack
     Value: !Join
-      - " "
+      - ","
       - - !Ref NinoCICanary
         - !Ref NinoHappyCanary
         - !Ref Nino3rdPartyCICanary
