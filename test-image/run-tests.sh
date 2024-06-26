@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -eu
 
-stack_name=${STACK_NAME:-smoke-tests}
+stack_name=karol-st
 lambda_name="$stack_name-CanaryRunnerFunction"
 
 echo "ℹ Running canaries from stack $stack_name using function $lambda_name"
