@@ -12,6 +12,7 @@ import {
   StopCanaryCommand,
   SyntheticsClient,
 } from "@aws-sdk/client-synthetics";
+import { Context } from "aws-lambda";
 
 const pollingInterval = 1000;
 
@@ -25,11 +26,17 @@ type CanaryRunResult = {
 };
 
 export class CanaryRunnerHandler implements LambdaInterface {
-  public async handler(event: {
-    canaryName: string;
-  }): Promise<CanaryRunResult> {
+  public async handler(
+    event: {
+      canaryName: string;
+    },
+    context?: Context
+  ): Promise<CanaryRunResult> {
     try {
-      logger.addPersistentLogAttributes({ canaryName: event.canaryName });
+      logger.addPersistentLogAttributes({
+        canaryName: event.canaryName,
+        clientRunId: context?.clientContext?.Custom?.runId,
+      });
 
       return {
         canaryName: event.canaryName,
