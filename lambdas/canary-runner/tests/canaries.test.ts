@@ -2,23 +2,22 @@ import {
   CloudFormationClient,
   DescribeStacksCommand,
 } from "@aws-sdk/client-cloudformation";
-import { CanaryInvokerHandler } from "../src/canary-invoker-handler";
+import { CanaryRunnerHandler } from "../src/canary-runner-handler";
 
 jest.setTimeout(50 * 1000 * 4);
 
 const cloudFormation = new CloudFormationClient();
-const canaryInvoker = new CanaryInvokerHandler();
+const canaryRunner = new CanaryRunnerHandler();
 
 describe("Run canaries", () => {
-  it("Should run all canaries", async () => {
+  it("All canaries should pass", async () => {
     const canaryNames = await getCanaryNames();
     let allPassed = true;
 
     for (const canary of canaryNames) {
-      const canaryRunResult = await canaryInvoker.handler(
-        { canaryName: canary },
-        {}
-      );
+      const canaryRunResult = await canaryRunner.handler({
+        canaryName: canary,
+      });
 
       allPassed = allPassed && canaryRunResult.passed;
     }
@@ -28,11 +27,7 @@ describe("Run canaries", () => {
 });
 
 async function getCanaryNames() {
-  const stackName = process.env.STACK_NAME;
-
-  if (!stackName) {
-    throw new Error("STACK_NAME environment variable not set");
-  }
+  const stackName = getEnvironmentVariable("STACK_NAME");
 
   const stack = await cloudFormation.send(
     new DescribeStacksCommand({ StackName: stackName })
@@ -46,5 +41,15 @@ async function getCanaryNames() {
     throw new Error(`Could not get canary names for stack ${stackName}`);
   }
 
-  return canaryNames.split(" ");
+  return canaryNames.split(",");
+}
+
+function getEnvironmentVariable(name: string): string {
+  const value = process.env[name];
+
+  if (!value) {
+    throw new Error(`${name} environment variable not set`);
+  }
+
+  return value;
 }

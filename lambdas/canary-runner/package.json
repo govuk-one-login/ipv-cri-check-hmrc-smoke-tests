@@ -1,5 +1,5 @@
 {
-  "name": "canary-invoker",
+  "name": "canary-runner",
   "description": "",
   "scripts": {
     "lint": "eslint .",
@@ -10,5 +10,7 @@
     "deploy": "../../deploy.sh",
     "compile": "tsc"
   },
-  "dependencies": {}
+  "dependencies": {
+    "@aws-sdk/client-synthetics": "^3.600.0"
+  }
 }
