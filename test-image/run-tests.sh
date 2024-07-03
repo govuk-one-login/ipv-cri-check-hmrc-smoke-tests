@@ -73,7 +73,7 @@ for canary in "${canaries[@]}"; do
 
   if [[ $(jq 'has("FunctionError")' <<< "$canary_result") == true ]]; then
     echo "  𝑥 Lambda invocation failed for canary $canary"
-    jq < "$output_file"
+    jq . "$output_file"
     success=false
   elif [[ $(jq --raw-output '.passed' "$output_file") == true ]]; then
     echo "  ✔ Successfully ran canary $canary"
