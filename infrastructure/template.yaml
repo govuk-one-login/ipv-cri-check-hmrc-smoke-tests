@@ -7,7 +7,7 @@ Parameters:
     Type: String
     Default: dev
     AllowedValues: [dev, localdev, build, staging, integration, production]
-    ConstraintDescription: must be dev, localdev, build, staging, integration or production
+    ConstraintDescription: Must be dev, localdev, build, staging, integration or production
   CodeSigningConfigArn:
     Type: String
     Default: ""
@@ -47,7 +47,7 @@ Resources:
       AlarmName: "nino-3rd-party-happy-canary-failure"
       ActionsEnabled: true
       Namespace: SmokeTests
-      MetricName: "Failed"
+      MetricName: Failed
       ComparisonOperator: GreaterThanOrEqualToThreshold
       EvaluationPeriods: 1
       Statistic: Sum
@@ -57,7 +57,7 @@ Resources:
       AlarmActions:
         - !ImportValue platform-alarm-warning-alert-topic
       Dimensions:
-        - Name: "CanaryName"
+        - Name: CanaryName
           Value: !Ref Nino3rdPartyHappyCanary
 
   NinoHappyCanaryAlarm:
@@ -68,7 +68,7 @@ Resources:
       AlarmName: "nino-happy-canary-failure"
       ActionsEnabled: true
       Namespace: SmokeTests
-      MetricName: "Failed"
+      MetricName: Failed
       ComparisonOperator: GreaterThanOrEqualToThreshold
       EvaluationPeriods: 1
       Statistic: Sum
@@ -78,7 +78,7 @@ Resources:
       AlarmActions:
         - !ImportValue platform-alarm-warning-alert-topic
       Dimensions:
-        - Name: "CanaryName"
+        - Name: CanaryName
           Value: !Ref NinoHappyCanary
 
   NinoCICanaryAlarm:
@@ -89,7 +89,7 @@ Resources:
       AlarmName: "nino-ci-canary-failure"
       ActionsEnabled: true
       Namespace: SmokeTests
-      MetricName: "Failed"
+      MetricName: Failed
       ComparisonOperator: GreaterThanOrEqualToThreshold
       EvaluationPeriods: 1
       Statistic: Sum
@@ -99,7 +99,7 @@ Resources:
       AlarmActions:
         - !ImportValue platform-alarm-warning-alert-topic
       Dimensions:
-        - Name: "CanaryName"
+        - Name: CanaryName
           Value: !Ref NinoCICanary
 
   Nino3rdPartyCICanaryAlarm:
@@ -110,7 +110,7 @@ Resources:
       AlarmName: "nino-3rd-party-ci-failure"
       ActionsEnabled: true
       Namespace: SmokeTests
-      MetricName: "Failed"
+      MetricName: Failed
       ComparisonOperator: GreaterThanOrEqualToThreshold
       EvaluationPeriods: 1
       Statistic: Sum
@@ -120,7 +120,7 @@ Resources:
       AlarmActions:
         - !ImportValue platform-alarm-warning-alert-topic
       Dimensions:
-        - Name: "CanaryName"
+        - Name: CanaryName
           Value: !Ref Nino3rdPartyCICanary
 
   CanariesRole:
@@ -216,8 +216,7 @@ Resources:
           Value: govuk-one-login/ipv-cri-check-hmrc-smoke-tests
       Code:
         Handler: exports.handler
-        Script:
-          !Sub
+        Script: !Sub
           - |
             var synthetics = require('Synthetics');
             const log = require('SyntheticsLogger');
@@ -343,8 +342,7 @@ Resources:
           Value: govuk-one-login/ipv-cri-check-hmrc-smoke-tests
       Code:
         Handler: exports.handler
-        Script:
-          !Sub
+        Script: !Sub
           - |
             var synthetics = require('Synthetics');
             const log = require('SyntheticsLogger');
@@ -454,8 +452,7 @@ Resources:
           Value: govuk-one-login/ipv-cri-check-hmrc-smoke-tests
       Code:
         Handler: exports.handler
-        Script:
-          !Sub
+        Script: !Sub
           - |
             var synthetics = require('Synthetics');
             const log = require('SyntheticsLogger');
@@ -581,8 +578,7 @@ Resources:
           Value: govuk-one-login/ipv-cri-check-hmrc-smoke-tests
       Code:
         Handler: exports.handler
-        Script:
-          !Sub
+        Script: !Sub
           - |
             var synthetics = require('Synthetics');
             const log = require('SyntheticsLogger');
