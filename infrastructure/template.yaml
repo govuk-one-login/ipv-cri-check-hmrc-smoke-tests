@@ -14,11 +14,17 @@ Parameters:
   PermissionsBoundary:
     Type: String
     Default: ""
+  DeployAlarmsInDevEnvironment:
+    Type: String
+    Default: false
 
 Conditions:
   UsePermissionsBoundary: !Not [!Equals [!Ref PermissionsBoundary, ""]]
   EnforceCodeSigning: !Not [!Equals [!Ref CodeSigningConfigArn, ""]]
   IsNotDevEnvironment: !Not [!Equals [!Ref Environment, dev]]
+  DeployAlarms: !Or
+    - !Equals [!Ref DeployAlarmsInDevEnvironment, "true"]
+    - !Condition IsNotDevEnvironment
 
 Globals:
   Function:
@@ -41,10 +47,10 @@ Mappings:
 Resources:
   Nino3rdPartyHappyCanaryAlarm:
     Type: AWS::CloudWatch::Alarm
-    Condition: IsNotDevEnvironment
+    Condition: DeployAlarms
     Properties:
-      AlarmDescription: "NINO 3rd party happy canary fail"
-      AlarmName: "nino-3rd-party-happy-canary-failure"
+      AlarmName: !Sub ${Nino3rdPartyHappyCanary}-canary-failure
+      AlarmDescription: !Sub Triggers when the ${Nino3rdPartyHappyCanary} canary fails three times within an hour
       ActionsEnabled: true
       Namespace: SmokeTests
       MetricName: Failed
@@ -62,10 +68,10 @@ Resources:
 
   NinoHappyCanaryAlarm:
     Type: AWS::CloudWatch::Alarm
-    Condition: IsNotDevEnvironment
+    Condition: DeployAlarms
     Properties:
-      AlarmDescription: "NINO happy canary fail"
-      AlarmName: "nino-happy-canary-failure"
+      AlarmName: !Sub ${NinoHappyCanary}-canary-failure
+      AlarmDescription: !Sub Triggers when the ${NinoHappyCanary} canary fails three times within an hour
       ActionsEnabled: true
       Namespace: SmokeTests
       MetricName: Failed
@@ -83,10 +89,10 @@ Resources:
 
   NinoCICanaryAlarm:
     Type: AWS::CloudWatch::Alarm
-    Condition: IsNotDevEnvironment
+    Condition: DeployAlarms
     Properties:
-      AlarmDescription: "NINO CI canary fail"
-      AlarmName: "nino-ci-canary-failure"
+      AlarmName: !Sub ${NinoCICanary}-canary-failure
+      AlarmDescription: !Sub Triggers when the ${NinoCICanary} canary fails three times within an hour
       ActionsEnabled: true
       Namespace: SmokeTests
       MetricName: Failed
@@ -104,10 +110,10 @@ Resources:
 
   Nino3rdPartyCICanaryAlarm:
     Type: AWS::CloudWatch::Alarm
-    Condition: IsNotDevEnvironment
+    Condition: DeployAlarms
     Properties:
-      AlarmDescription: "NINO 3rd party CI canary Fail"
-      AlarmName: "nino-3rd-party-ci-failure"
+      AlarmName: !Sub ${Nino3rdPartyCICanary}-canary-failure
+      AlarmDescription: !Sub Triggers when the ${Nino3rdPartyCICanary} canary fails three times within an hour
       ActionsEnabled: true
       Namespace: SmokeTests
       MetricName: Failed
