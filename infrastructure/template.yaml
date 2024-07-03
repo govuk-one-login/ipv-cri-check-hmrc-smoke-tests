@@ -7,18 +7,24 @@ Parameters:
     Type: String
     Default: dev
     AllowedValues: [dev, localdev, build, staging, integration, production]
-    ConstraintDescription: must be dev, localdev, build, staging, integration or production
+    ConstraintDescription: Must be dev, localdev, build, staging, integration or production
   CodeSigningConfigArn:
     Type: String
     Default: ""
   PermissionsBoundary:
     Type: String
     Default: ""
+  DeployAlarmsInDevEnvironment:
+    Type: String
+    Default: false
 
 Conditions:
   UsePermissionsBoundary: !Not [!Equals [!Ref PermissionsBoundary, ""]]
   EnforceCodeSigning: !Not [!Equals [!Ref CodeSigningConfigArn, ""]]
   IsNotDevEnvironment: !Not [!Equals [!Ref Environment, dev]]
+  DeployAlarms: !Or
+    - !Equals [!Ref DeployAlarmsInDevEnvironment, "true"]
+    - !Condition IsNotDevEnvironment
 
 Globals:
   Function:
@@ -41,13 +47,13 @@ Mappings:
 Resources:
   Nino3rdPartyHappyCanaryAlarm:
     Type: AWS::CloudWatch::Alarm
-    Condition: IsNotDevEnvironment
+    Condition: DeployAlarms
     Properties:
-      AlarmDescription: "NINO 3rd party happy canary fail"
-      AlarmName: "nino-3rd-party-happy-canary-failure"
+      AlarmName: !Sub ${Nino3rdPartyHappyCanary}-canary-failure
+      AlarmDescription: !Sub Triggers when the ${Nino3rdPartyHappyCanary} canary fails three times within an hour
       ActionsEnabled: true
       Namespace: SmokeTests
-      MetricName: "Failed"
+      MetricName: Failed
       ComparisonOperator: GreaterThanOrEqualToThreshold
       EvaluationPeriods: 1
       Statistic: Sum
@@ -57,18 +63,18 @@ Resources:
       AlarmActions:
         - !ImportValue platform-alarm-warning-alert-topic
       Dimensions:
-        - Name: "CanaryName"
+        - Name: CanaryName
           Value: !Ref Nino3rdPartyHappyCanary
 
   NinoHappyCanaryAlarm:
     Type: AWS::CloudWatch::Alarm
-    Condition: IsNotDevEnvironment
+    Condition: DeployAlarms
     Properties:
-      AlarmDescription: "NINO happy canary fail"
-      AlarmName: "nino-happy-canary-failure"
+      AlarmName: !Sub ${NinoHappyCanary}-canary-failure
+      AlarmDescription: !Sub Triggers when the ${NinoHappyCanary} canary fails three times within an hour
       ActionsEnabled: true
       Namespace: SmokeTests
-      MetricName: "Failed"
+      MetricName: Failed
       ComparisonOperator: GreaterThanOrEqualToThreshold
       EvaluationPeriods: 1
       Statistic: Sum
@@ -78,18 +84,18 @@ Resources:
       AlarmActions:
         - !ImportValue platform-alarm-warning-alert-topic
       Dimensions:
-        - Name: "CanaryName"
+        - Name: CanaryName
           Value: !Ref NinoHappyCanary
 
   NinoCICanaryAlarm:
     Type: AWS::CloudWatch::Alarm
-    Condition: IsNotDevEnvironment
+    Condition: DeployAlarms
     Properties:
-      AlarmDescription: "NINO CI canary fail"
-      AlarmName: "nino-ci-canary-failure"
+      AlarmName: !Sub ${NinoCICanary}-canary-failure
+      AlarmDescription: !Sub Triggers when the ${NinoCICanary} canary fails three times within an hour
       ActionsEnabled: true
       Namespace: SmokeTests
-      MetricName: "Failed"
+      MetricName: Failed
       ComparisonOperator: GreaterThanOrEqualToThreshold
       EvaluationPeriods: 1
       Statistic: Sum
@@ -99,18 +105,18 @@ Resources:
       AlarmActions:
         - !ImportValue platform-alarm-warning-alert-topic
       Dimensions:
-        - Name: "CanaryName"
+        - Name: CanaryName
           Value: !Ref NinoCICanary
 
   Nino3rdPartyCICanaryAlarm:
     Type: AWS::CloudWatch::Alarm
-    Condition: IsNotDevEnvironment
+    Condition: DeployAlarms
     Properties:
-      AlarmDescription: "NINO 3rd party CI canary Fail"
-      AlarmName: "nino-3rd-party-ci-failure"
+      AlarmName: !Sub ${Nino3rdPartyCICanary}-canary-failure
+      AlarmDescription: !Sub Triggers when the ${Nino3rdPartyCICanary} canary fails three times within an hour
       ActionsEnabled: true
       Namespace: SmokeTests
-      MetricName: "Failed"
+      MetricName: Failed
       ComparisonOperator: GreaterThanOrEqualToThreshold
       EvaluationPeriods: 1
       Statistic: Sum
@@ -120,7 +126,7 @@ Resources:
       AlarmActions:
         - !ImportValue platform-alarm-warning-alert-topic
       Dimensions:
-        - Name: "CanaryName"
+        - Name: CanaryName
           Value: !Ref Nino3rdPartyCICanary
 
   CanariesRole:
@@ -166,7 +172,7 @@ Resources:
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
 
-  CanaryInvokerFunction:
+  CanaryRunnerFunction:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
@@ -174,13 +180,14 @@ Resources:
         Sourcemap: true
     Properties:
       Timeout: 60
-      Handler: lambdas/canary-invoker/src/canary-invoker-handler.lambdaHandler
+      Handler: lambdas/canary-runner/src/canary-runner-handler.lambdaHandler
+      FunctionName: !Select [3, !Split ["/", !Ref CanaryRunnerFunctionLogGroup]]
+      CodeSigningConfigArn: !If [EnforceCodeSigning, !Ref CodeSigningConfigArn, !Ref AWS::NoValue]
       LoggingConfig:
-        LogGroup: !Ref CanaryInvokerFunctionLogGroup
-      CodeSigningConfigArn:
-        !If [EnforceCodeSigning, !Ref CodeSigningConfigArn, !Ref AWS::NoValue]
+        LogGroup: !Ref CanaryRunnerFunctionLogGroup
       Policies:
         - Statement:
+            Sid: AllowRunCanaries
             Effect: Allow
             Action:
               - synthetics:GetCanary
@@ -193,10 +200,10 @@ Resources:
               - !Sub arn:aws:synthetics:${AWS::Region}:${AWS::AccountId}:canary:${Nino3rdPartyCICanary}
               - !Sub arn:aws:synthetics:${AWS::Region}:${AWS::AccountId}:canary:${Nino3rdPartyHappyCanary}
 
-  CanaryInvokerFunctionLogGroup:
+  CanaryRunnerFunctionLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub /aws/lambda/${AWS::StackName}/CanaryInvokerFunction
+      LogGroupName: !Sub /aws/lambda/${AWS::StackName}-CanaryRunnerFunction
       RetentionInDays: 30
 
   NinoCICanary:
@@ -216,8 +223,7 @@ Resources:
           Value: govuk-one-login/ipv-cri-check-hmrc-smoke-tests
       Code:
         Handler: exports.handler
-        Script:
-          !Sub
+        Script: !Sub
           - |
             var synthetics = require('Synthetics');
             const log = require('SyntheticsLogger');
@@ -343,8 +349,7 @@ Resources:
           Value: govuk-one-login/ipv-cri-check-hmrc-smoke-tests
       Code:
         Handler: exports.handler
-        Script:
-          !Sub
+        Script: !Sub
           - |
             var synthetics = require('Synthetics');
             const log = require('SyntheticsLogger');
@@ -454,8 +459,7 @@ Resources:
           Value: govuk-one-login/ipv-cri-check-hmrc-smoke-tests
       Code:
         Handler: exports.handler
-        Script:
-          !Sub
+        Script: !Sub
           - |
             var synthetics = require('Synthetics');
             const log = require('SyntheticsLogger');
@@ -581,8 +585,7 @@ Resources:
           Value: govuk-one-login/ipv-cri-check-hmrc-smoke-tests
       Code:
         Handler: exports.handler
-        Script:
-          !Sub
+        Script: !Sub
           - |
             var synthetics = require('Synthetics');
             const log = require('SyntheticsLogger');
@@ -706,13 +709,10 @@ Resources:
             CoreStubButton: !FindInMap [CriButtonOnCoreStub, "Environment", !Ref Environment]
 
 Outputs:
-  CanaryInvokerFunctionName:
-    Description: CanaryInvoker Lambda Function Name
-    Value: !Ref CanaryInvokerFunction
   CanaryNames:
     Description: The names of the all canaries created by the stack
     Value: !Join
-      - " "
+      - ","
       - - !Ref NinoCICanary
         - !Ref NinoHappyCanary
         - !Ref Nino3rdPartyCICanary

@@ -3,5 +3,5 @@ import baseConfig from "../../jest.config.base";
 
 export default {
   ...baseConfig,
-  displayName: "lambdas/canary-invoker",
+  displayName: "lambdas/canary-runner",
 } satisfies Config;

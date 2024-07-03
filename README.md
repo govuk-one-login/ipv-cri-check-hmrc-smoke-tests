@@ -17,5 +17,5 @@ To run the canaries locally you need to do the following steps:
     ```
 4. Run `docker-compose up --build`
 
-This will then invoke the Canary-Invoker Lambda from the `ipv-cri-check-hmrc-smoke-tests` stack. If you want to use your
+This will then invoke the canary runner Lambda from the `ipv-cri-check-hmrc-smoke-tests` stack. If you want to use your
 own stack then update the `run-tests.sh` to point to your stack.
