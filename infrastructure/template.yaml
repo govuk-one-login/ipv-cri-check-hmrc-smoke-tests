@@ -172,7 +172,7 @@ Resources:
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
 
-  CanaryInvokerFunction:
+  CanaryRunnerFunction:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
@@ -180,13 +180,14 @@ Resources:
         Sourcemap: true
     Properties:
       Timeout: 60
-      Handler: lambdas/canary-invoker/src/canary-invoker-handler.lambdaHandler
+      Handler: lambdas/canary-runner/src/canary-runner-handler.lambdaHandler
+      FunctionName: !Select [3, !Split ["/", !Ref CanaryRunnerFunctionLogGroup]]
+      CodeSigningConfigArn: !If [EnforceCodeSigning, !Ref CodeSigningConfigArn, !Ref AWS::NoValue]
       LoggingConfig:
-        LogGroup: !Ref CanaryInvokerFunctionLogGroup
-      CodeSigningConfigArn:
-        !If [EnforceCodeSigning, !Ref CodeSigningConfigArn, !Ref AWS::NoValue]
+        LogGroup: !Ref CanaryRunnerFunctionLogGroup
       Policies:
         - Statement:
+            Sid: AllowRunCanaries
             Effect: Allow
             Action:
               - synthetics:GetCanary
@@ -199,10 +200,10 @@ Resources:
               - !Sub arn:aws:synthetics:${AWS::Region}:${AWS::AccountId}:canary:${Nino3rdPartyCICanary}
               - !Sub arn:aws:synthetics:${AWS::Region}:${AWS::AccountId}:canary:${Nino3rdPartyHappyCanary}
 
-  CanaryInvokerFunctionLogGroup:
+  CanaryRunnerFunctionLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub /aws/lambda/${AWS::StackName}/CanaryInvokerFunction
+      LogGroupName: !Sub /aws/lambda/${AWS::StackName}-CanaryRunnerFunction
       RetentionInDays: 30
 
   NinoCICanary:
@@ -708,13 +709,10 @@ Resources:
             CoreStubButton: !FindInMap [CriButtonOnCoreStub, "Environment", !Ref Environment]
 
 Outputs:
-  CanaryInvokerFunctionName:
-    Description: CanaryInvoker Lambda Function Name
-    Value: !Ref CanaryInvokerFunction
   CanaryNames:
     Description: The names of the all canaries created by the stack
     Value: !Join
-      - " "
+      - ","
       - - !Ref NinoCICanary
         - !Ref NinoHappyCanary
         - !Ref Nino3rdPartyCICanary
