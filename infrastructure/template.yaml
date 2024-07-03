@@ -16,7 +16,7 @@ Parameters:
     Default: ""
   DeployAlarmsInDevEnvironment:
     Type: String
-    Default: false
+    Default: "false"
 
 Conditions:
   UsePermissionsBoundary: !Not [!Equals [!Ref PermissionsBoundary, ""]]
