@@ -50,16 +50,18 @@ Resources:
     Condition: DeployAlarms
     Properties:
       AlarmName: !Sub ${Nino3rdPartyHappyCanary}-canary-failure
-      AlarmDescription: !Sub Triggers when the ${Nino3rdPartyHappyCanary} canary fails three times within an hour
+      AlarmDescription: !Sub Triggers when the ${Nino3rdPartyHappyCanary} canary success percentage is <75 or no data present
       ActionsEnabled: true
-      Namespace: SmokeTests
-      MetricName: Failed
-      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Namespace: CloudWatchSynthetics
+      MetricName: SuccessPercent
+      ComparisonOperator: LessThanThreshold
       EvaluationPeriods: 1
-      Statistic: Sum
+      Statistic: Average
       Period: 3600
-      Threshold: 3
-      TreatMissingData: notBreaching
+      Threshold: 75
+      TreatMissingData: breaching
+      OKActions:
+        - !ImportValue platform-alarm-warning-alert-topic
       AlarmActions:
         - !ImportValue platform-alarm-warning-alert-topic
       Dimensions:
@@ -71,16 +73,18 @@ Resources:
     Condition: DeployAlarms
     Properties:
       AlarmName: !Sub ${NinoHappyCanary}-canary-failure
-      AlarmDescription: !Sub Triggers when the ${NinoHappyCanary} canary fails three times within an hour
+      AlarmDescription: !Sub Triggers when the ${NinoHappyCanary} canary success percentage is <75 or no data present
       ActionsEnabled: true
-      Namespace: SmokeTests
-      MetricName: Failed
-      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Namespace: CloudWatchSynthetics
+      MetricName: SuccessPercent
+      ComparisonOperator: LessThanThreshold
       EvaluationPeriods: 1
-      Statistic: Sum
+      Statistic: Average
       Period: 3600
-      Threshold: 3
-      TreatMissingData: notBreaching
+      Threshold: 75
+      TreatMissingData: breaching
+      OKActions:
+        - !ImportValue platform-alarm-warning-alert-topic
       AlarmActions:
         - !ImportValue platform-alarm-warning-alert-topic
       Dimensions:
@@ -92,16 +96,18 @@ Resources:
     Condition: DeployAlarms
     Properties:
       AlarmName: !Sub ${NinoCICanary}-canary-failure
-      AlarmDescription: !Sub Triggers when the ${NinoCICanary} canary fails three times within an hour
+      AlarmDescription: !Sub Triggers when the ${NinoCICanary} canary success percentage is <75 or no data present
       ActionsEnabled: true
-      Namespace: SmokeTests
-      MetricName: Failed
-      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Namespace: CloudWatchSynthetics
+      MetricName: SuccessPercent
+      ComparisonOperator: LessThanThreshold
       EvaluationPeriods: 1
-      Statistic: Sum
+      Statistic: Average
       Period: 3600
-      Threshold: 3
-      TreatMissingData: notBreaching
+      Threshold: 75
+      TreatMissingData: breaching
+      OKActions:
+        - !ImportValue platform-alarm-warning-alert-topic
       AlarmActions:
         - !ImportValue platform-alarm-warning-alert-topic
       Dimensions:
@@ -113,16 +119,18 @@ Resources:
     Condition: DeployAlarms
     Properties:
       AlarmName: !Sub ${Nino3rdPartyCICanary}-canary-failure
-      AlarmDescription: !Sub Triggers when the ${Nino3rdPartyCICanary} canary fails three times within an hour
+      AlarmDescription: !Sub Triggers when the ${Nino3rdPartyCICanary} canary success percentage is <75 or no data present
       ActionsEnabled: true
-      Namespace: SmokeTests
-      MetricName: Failed
-      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Namespace: CloudWatchSynthetics
+      MetricName: SuccessPercent
+      ComparisonOperator: LessThanThreshold
       EvaluationPeriods: 1
-      Statistic: Sum
+      Statistic: Average
       Period: 3600
-      Threshold: 3
-      TreatMissingData: notBreaching
+      Threshold: 75
+      TreatMissingData: breaching
+      OKActions:
+        - !ImportValue platform-alarm-warning-alert-topic
       AlarmActions:
         - !ImportValue platform-alarm-warning-alert-topic
       Dimensions:
