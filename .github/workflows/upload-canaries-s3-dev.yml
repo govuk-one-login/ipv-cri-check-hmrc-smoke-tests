@@ -27,8 +27,11 @@ jobs:
       - name: Create S3 bucket if not exists
         run: aws s3api head-bucket --bucket synthetic-canaries-bucket || aws s3 mb s3://synthetic-canaries-bucket
 
-      - name: Zip the canaries folder
-        run: zip -r canaries.zip canaries
-
-      - name: Upload canaries to S3
-        run: aws s3 cp canaries.zip s3://synthetic-canaries-bucket
+      - name: Package and upload canary script
+        id: CanaryScriptPackage
+        run: |
+          cd canaries
+          mkdir -p ./nodejs/node_modules
+          cp nino-ci-canary.js ./nodejs/node_modules/nino-ci-canary.js
+          zip -r canaries.zip nodejs/
+          aws s3 cp canaries.zip s3://synthetic-canaries-bucket

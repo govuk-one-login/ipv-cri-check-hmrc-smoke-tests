@@ -140,7 +140,7 @@ Resources:
       Code:
         S3Bucket: synthetic-canaries-bucket
         S3Key: canaries.zip
-        Handler: canaries/nino-ci-canary.handler
+        Handler: nino-ci-canary.handler
       RunConfig:
         ActiveTracing: True
         EnvironmentVariables:
