@@ -1,0 +1,34 @@
+name: Upload canaries to S3
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  pull_request:
+
+jobs:
+  upload-canaries:
+    name: Upload Synthetic Canaries to S3
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: eu-west-2
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Assume temporary AWS role
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::562670266496:role/GitHubPreMergeRole-check-hmrc-21EkP8EjT9y
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Create S3 bucket if not exists
+        run: aws s3api head-bucket --bucket synthetic-canaries-bucket || aws s3 mb s3://synthetic-canaries-bucket
+
+      - name: Zip the canaries folder
+        run: zip -r canaries.zip canaries
+
+      - name: Upload canaries to S3
+        run: aws s3 cp canaries.zip s3://synthetic-canaries-bucket
