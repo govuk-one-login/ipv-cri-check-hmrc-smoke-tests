@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+
 cd "$(dirname "${BASH_SOURCE[0]}")/infrastructure"
 set -eu
 
@@ -11,6 +12,9 @@ if ! [[ $stack_name ]]; then
 fi
 
 export AWS_DEFAULT_REGION=${AWS_REGION:-eu-west-2}
+
+# Copy the canaries folder into the Lambda directory
+cp -r ../canaries ../lambdas/s3-canaries-deployer/
 
 sam validate -t template.yaml
 sam validate -t template.yaml --lint
@@ -28,7 +32,7 @@ sam deploy --stack-name "$stack_name" \
   --no-confirm-changeset \
   --resolve-s3 \
   --s3-prefix "$stack_name" \
-  --capabilities CAPABILITY_IAM \
+  --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND \
   --tags \
   cri:component=ipv-cri-check-hmrc-smoke-tests \
   cri:stack-type=dev \
@@ -36,3 +40,6 @@ sam deploy --stack-name "$stack_name" \
   cri:deployment-source=manual \
   --parameter-overrides \
   Environment=dev
+
+# Clean up the copied canaries folder after deployment
+rm -rf ../lambdas/s3-canaries-deployer/canaries

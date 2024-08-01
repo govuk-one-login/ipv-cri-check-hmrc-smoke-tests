@@ -160,7 +160,6 @@ Resources:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
                   - cloudwatch:PutMetricData
-
   CanariesBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -171,7 +170,6 @@ Resources:
         BlockPublicPolicy: true
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
-
   CanaryRunnerFunction:
     Type: AWS::Serverless::Function
     Metadata:
@@ -329,7 +327,7 @@ Resources:
             exports.handler = async () => {
               return await recordedScript();
             };
-          - CoreStubUrl: !Sub "{{resolve:ssm:/check-hmrc-cri-api/smoke-tests/core-stub-url}}"
+          - CoreStubUrl: "/check-hmrc-cri-api/smoke-tests/core-stub-url-3rdparty"
             CoreStubButton: !FindInMap [CriButtonOnCoreStub, "Environment", !Ref Environment]
 
   NinoHappyCanary:
@@ -439,7 +437,7 @@ Resources:
             exports.handler = async () => {
               return await recordedScript();
             };
-          - CoreStubUrl: !Sub "{{resolve:ssm:/check-hmrc-cri-api/smoke-tests/core-stub-url}}"
+          - CoreStubUrl: "/check-hmrc-cri-api/smoke-tests/core-stub-url-3rdparty"
             CoreStubButton: !FindInMap [CriButtonOnCoreStub, "Environment", !Ref Environment]
 
   Nino3rdPartyCICanary:
@@ -565,8 +563,38 @@ Resources:
             exports.handler = async () => {
               return await recordedScript();
             };
-          - CoreStubUrl: !Sub "{{resolve:ssm:/check-hmrc-cri-api/smoke-tests/core-stub-url-3rdparty}}"
+          - CoreStubUrl: "/check-hmrc-cri-api/smoke-tests/core-stub-url-3rdparty"
             CoreStubButton: !FindInMap [CriButtonOnCoreStub, "Environment", !Ref Environment]
+
+  S3BucketDeployer:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: buckets.yaml
+      Parameters:
+        CodeSigningConfigArn: !Ref CodeSigningConfigArn
+        PermissionsBoundary: !Ref PermissionsBoundary
+
+  SyntheticsCanary:
+    Type: AWS::Synthetics::Canary
+    Properties:
+      Name: !Sub ${AWS::StackName}
+      ExecutionRoleArn: !GetAtt CanariesRole.Arn
+      Code:
+        Handler: index.handler
+        S3Bucket: !GetAtt S3BucketDeployer.Outputs.CanaryTestsBucket
+        S3Key: nino-ci
+      ArtifactS3Location: !Sub s3://${S3BucketDeployer.Outputs.CanaryTestsBucket}
+      RuntimeVersion: syn-nodejs-puppeteer-7.0
+      Schedule: {Expression: 'rate(1 minute)', DurationInSeconds: 3600}
+      RunConfig: {TimeoutInSeconds: 60}
+      FailureRetentionPeriod: 30
+      SuccessRetentionPeriod: 30
+      Tags:
+        - Key: Blueprint
+          Value: canaryRecorder
+        - Key: Repository
+          Value: govuk-one-login/ipv-cri-check-hmrc-smoke-tests
+      StartCanaryAfterCreation: true
 
   Nino3rdPartyHappyCanary:
     Type: AWS::Synthetics::Canary
@@ -705,7 +733,7 @@ Resources:
             exports.handler = async () => {
               return await recordedScript();
             };
-          - CoreStubUrl: !Sub "{{resolve:ssm:/check-hmrc-cri-api/smoke-tests/core-stub-url-3rdparty}}"
+          - CoreStubUrl: "/check-hmrc-cri-api/smoke-tests/core-stub-url-3rdparty"
             CoreStubButton: !FindInMap [CriButtonOnCoreStub, "Environment", !Ref Environment]
 
 Outputs:

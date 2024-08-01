@@ -1,0 +1,110 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Description: Canary Deployer Stack
+Globals:
+  Function:
+    Timeout: 30
+    CodeUri: ..
+    Runtime: nodejs18.x
+    Architectures: [arm64]
+    PermissionsBoundary:
+      !If [UsePermissionsBoundary, !Ref PermissionsBoundary, !Ref AWS::NoValue]
+    Environment:
+      Variables:
+        NODE_OPTIONS: --enable-source-maps
+Parameters:
+  CodeSigningConfigArn:
+    Type: String
+    Default: ""
+  PermissionsBoundary:
+    Type: String
+    Default: ""
+Conditions:
+  EnforceCodeSigning: !Not [!Equals [!Ref CodeSigningConfigArn, ""]]
+  UsePermissionsBoundary: !Not [!Equals [!Ref PermissionsBoundary, ""]]
+Resources:
+  CanaryTestsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  S3CanariesDeployerFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Sourcemap: true
+        External:
+          - "@aws-sdk/*"
+          - "fs-extra"
+          - "cfn-response"
+    Properties:
+      Handler:  src/s3-canaries-deployer-handler.lambdaHandler
+      CodeUri: ../lambdas/s3-canaries-deployer/
+      CodeSigningConfigArn:
+        !If [EnforceCodeSigning, !Ref CodeSigningConfigArn, !Ref AWS::NoValue]
+      LoggingConfig:
+        LogGroup: !Ref S3CanariesDeployerLogGroup
+      Role: !GetAtt S3CanariesDeployerFunctionRole.Arn
+
+  S3CanariesDeployerLogGroup:
+    Type: AWS::Logs::LogGroup
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${AWS::StackName}-S3CanariesDeployerFunction
+      RetentionInDays: 30
+
+  S3CanariesDeployerFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service: "lambda.amazonaws.com"
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: "S3AccessPolicy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "s3:PutObject"
+                  - "s3:ListBucket"
+                  - "s3:DeleteObject"
+                Resource:
+                  - !Sub "arn:aws:s3:::${CanaryTestsBucket}"
+                  - !Sub "arn:aws:s3:::${CanaryTestsBucket}/*"
+              - Effect: "Allow"
+                Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Resource: "*"
+  S3DeploymentCustomResource:
+    Type: Custom::S3Deployment
+    Properties:
+      ServiceToken: !GetAtt S3CanariesDeployerFunction.Arn
+      BucketName: !Ref CanaryTestsBucket
+      SourceFolder: canaries
+Outputs:
+  CanaryTestsBucketName:
+    Value: !Ref CanaryTestsBucket
+    Description: Bucket for storing canary scripts
+    Export:
+      Name: CanaryTestsBucket
+  CanaryTestsBucketArn:
+    Value: !GetAtt CanaryTestsBucket.Arn
+    Description: The Arn of the Bucket for storing Canaries
+    Export:
+      Name: CanaryTestsBucketArn
