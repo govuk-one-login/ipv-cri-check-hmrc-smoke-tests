@@ -1,6 +1,6 @@
 # ipv-cri-check-smoke-tests
 
-HMRC Check Credential Issuer API Smoke Tests
+HMRC Check Credential Issuer API Smoke Tests test
 
 ## Running Canaries Locally
 
