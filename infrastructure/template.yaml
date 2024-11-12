@@ -42,7 +42,7 @@ Mappings:
     Environment:
       dev: 3
       build: 5
-      staging: 8
+      staging: 7
 
 Resources:
   Nino3rdPartyHappyCanaryAlarm:
