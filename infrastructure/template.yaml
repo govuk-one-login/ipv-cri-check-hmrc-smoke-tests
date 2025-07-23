@@ -221,7 +221,7 @@ Resources:
       StartCanaryAfterCreation: true
       ArtifactS3Location: !Sub s3://${CanariesBucket}/ci
       ExecutionRoleArn: !GetAtt CanariesRole.Arn
-      RuntimeVersion: syn-nodejs-puppeteer-7.0
+      RuntimeVersion: syn-nodejs-puppeteer-10.0
       Schedule:
         Expression: rate(15 minutes)
       Tags:
@@ -235,17 +235,17 @@ Resources:
           - |
             var synthetics = require('Synthetics');
             const log = require('SyntheticsLogger');
-            const escapeXpathString = (str) => {
-              return str.replace(/'/g, `', "'", '`);
-            };
+
             const clickByText = async (page, text) => {
-              const escapedText = escapeXpathString(text);
-              const linkHandlers = await page.$x("//a[contains(text(), '" + escapedText + "')]");
-              if (linkHandlers.length > 0) {
-                await linkHandlers[0].click();
-              } else {
-                throw new Error('Link not found:' + text);
+            const linkHandlers = await page.$$('a');
+              for (const linkHandler of linkHandlers) {
+              const linkHandlerText = await (await linkHandler.getProperty('textContent')).jsonValue();
+                if (linkHandlerText && linkHandlerText.trim().includes(text)) {
+                  await linkHandler.click();
+                  return;
+                }
               }
+            throw new Error('Link not found: ' + text);
             };
             const recordedScript = async function () {
               let page = await synthetics.getPage();
@@ -347,7 +347,7 @@ Resources:
       StartCanaryAfterCreation: true
       ArtifactS3Location: !Sub s3://${CanariesBucket}/happy
       ExecutionRoleArn: !GetAtt CanariesRole.Arn
-      RuntimeVersion: syn-nodejs-puppeteer-7.0
+      RuntimeVersion: syn-nodejs-puppeteer-10.0
       Schedule:
         Expression: rate(15 minutes)
       Tags:
@@ -361,17 +361,17 @@ Resources:
           - |
             var synthetics = require('Synthetics');
             const log = require('SyntheticsLogger');
-            const escapeXpathString = (str) => {
-              return str.replace(/'/g, `', "'", '`);
-            };
+
             const clickByText = async (page, text) => {
-              const escapedText = escapeXpathString(text);
-              const linkHandlers = await page.$x("//a[contains(text(), '" + escapedText + "')]");
-              if (linkHandlers.length > 0) {
-                await linkHandlers[0].click();
-              } else {
-                throw new Error('Link not found:' + text);
+            const linkHandlers = await page.$$('a');
+              for (const linkHandler of linkHandlers) {
+              const linkHandlerText = await (await linkHandler.getProperty('textContent')).jsonValue();
+                if (linkHandlerText && linkHandlerText.trim().includes(text)) {
+              await linkHandler.click();
+              return;
               }
+            }
+              throw new Error('Link not found: ' + text);
             };
             const recordedScript = async function () {
               let page = await synthetics.getPage();
@@ -457,7 +457,7 @@ Resources:
       StartCanaryAfterCreation: true
       ArtifactS3Location: !Sub s3://${CanariesBucket}/3rd-party-ci
       ExecutionRoleArn: !GetAtt CanariesRole.Arn
-      RuntimeVersion: syn-nodejs-puppeteer-7.0
+      RuntimeVersion: syn-nodejs-puppeteer-10.0
       Schedule:
         Expression: rate(15 minutes)
       Tags:
@@ -471,17 +471,17 @@ Resources:
           - |
             var synthetics = require('Synthetics');
             const log = require('SyntheticsLogger');
-            const escapeXpathString = (str) => {
-              return str.replace(/'/g, `', "'", '`);
-            };
+
             const clickByText = async (page, text) => {
-              const escapedText = escapeXpathString(text);
-              const linkHandlers = await page.$x("//a[contains(text(), '" + escapedText + "')]");
-              if (linkHandlers.length > 0) {
-                await linkHandlers[0].click();
-              } else {
-                throw new Error('Link not found:' + text);
+            const linkHandlers = await page.$$('a');
+              for (const linkHandler of linkHandlers) {
+              const linkHandlerText = await (await linkHandler.getProperty('textContent')).jsonValue();
+                if (linkHandlerText && linkHandlerText.trim().includes(text)) {
+                  await linkHandler.click();
+                  return;
+                }
               }
+            throw new Error('Link not found: ' + text);
             };
             const recordedScript = async function () {
               let page = await synthetics.getPage();
@@ -583,7 +583,7 @@ Resources:
       StartCanaryAfterCreation: true
       ArtifactS3Location: !Sub s3://${CanariesBucket}/3rd-party-happy
       ExecutionRoleArn: !GetAtt CanariesRole.Arn
-      RuntimeVersion: syn-nodejs-puppeteer-7.0
+      RuntimeVersion: syn-nodejs-puppeteer-10.0
       Schedule:
         Expression: rate(15 minutes)
       Tags:
@@ -597,17 +597,17 @@ Resources:
           - |
             var synthetics = require('Synthetics');
             const log = require('SyntheticsLogger');
-            const escapeXpathString = (str) => {
-              return str.replace(/'/g, `', "'", '`);
-            };
+
             const clickByText = async (page, text) => {
-              const escapedText = escapeXpathString(text);
-              const linkHandlers = await page.$x("//a[contains(text(), '" + escapedText + "')]");
-              if (linkHandlers.length > 0) {
-                await linkHandlers[0].click();
-              } else {
-                throw new Error('Link not found:' + text);
+            const linkHandlers = await page.$$('a');
+              for (const linkHandler of linkHandlers) {
+              const linkHandlerText = await (await linkHandler.getProperty('textContent')).jsonValue();
+                if (linkHandlerText && linkHandlerText.trim().includes(text)) {
+                  await linkHandler.click();
+                  return;
+                }
               }
+            throw new Error('Link not found: ' + text);
             };
             const recordedScript = async function () {
               let page = await synthetics.getPage();
