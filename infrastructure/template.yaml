@@ -37,13 +37,6 @@ Globals:
       Variables:
         NODE_OPTIONS: --enable-source-maps
 
-Mappings:
-  CriButtonOnCoreStub:
-    Environment:
-      dev: 3
-      build: 5
-      staging: 7
-
 Resources:
   Nino3rdPartyHappyCanaryAlarm:
     Type: AWS::CloudWatch::Alarm
@@ -254,14 +247,9 @@ Resources:
                 await page.goto("${CoreStubUrl}", { waitUntil: 'domcontentloaded', timeout: 60000 })
               })
               await page.setViewport({ width: 1364, height: 695 })
-              await synthetics.executeStep('Click Check HMRC Build Evidence Requested', async function() {
-                await page.waitForSelector('.govuk-template__body > .govuk-width-container > #main-content > a:nth-child(${CoreStubButton}) > .govuk-button')
-                await page.click('.govuk-template__body > .govuk-width-container > #main-content > a:nth-child(${CoreStubButton}) > .govuk-button')
-              })
-              await navigationPromise
-              await synthetics.executeStep('Click Continue on Evidence Requested page', async function() {
-                await page.waitForSelector('form > .govuk-form-group > .govuk-fieldset > .govuk-button-group > .govuk-button')
-                await page.click('form > .govuk-form-group > .govuk-fieldset > .govuk-button-group > .govuk-button')
+              await synthetics.executeStep('Click Check HMRC Build', async function() {
+                await page.waitForSelector('input#check-hmrc-${Environment}')
+                await page.click('input#check-hmrc-${Environment}')
               })
               await navigationPromise
               await synthetics.executeStep("Click New User Hyperlink", async function () {
@@ -338,7 +326,7 @@ Resources:
               return await recordedScript();
             };
           - CoreStubUrl: !Sub "{{resolve:ssm:/check-hmrc-cri-api/smoke-tests/core-stub-url}}"
-            CoreStubButton: !FindInMap [CriButtonOnCoreStub, "Environment", !Ref Environment]
+            Environment: !Ref Environment
 
   NinoHappyCanary:
     Type: AWS::Synthetics::Canary
@@ -381,14 +369,9 @@ Resources:
                 await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 })
               })
               await page.setViewport({ width: 1364, height: 695 })
-              await synthetics.executeStep('Click Check HMRC Build Evidence Requested', async function() {
-                await page.waitForSelector('.govuk-template__body > .govuk-width-container > #main-content > a:nth-child(${CoreStubButton}) > .govuk-button')
-                await page.click('.govuk-template__body > .govuk-width-container > #main-content > a:nth-child(${CoreStubButton}) > .govuk-button')
-              })
-              await navigationPromise
-              await synthetics.executeStep('Click Continue on Evidence Requested page', async function() {
-                await page.waitForSelector('form > .govuk-form-group > .govuk-fieldset > .govuk-button-group > .govuk-button')
-                await page.click('form > .govuk-form-group > .govuk-fieldset > .govuk-button-group > .govuk-button')
+              await synthetics.executeStep('Click Check HMRC Build', async function() {
+                await page.waitForSelector('input#check-hmrc-${Environment}')
+                await page.click('input#check-hmrc-${Environment}')
               })
               await navigationPromise
               await synthetics.executeStep("Click New User Hyperlink", async function () {
@@ -448,7 +431,7 @@ Resources:
               return await recordedScript();
             };
           - CoreStubUrl: !Sub "{{resolve:ssm:/check-hmrc-cri-api/smoke-tests/core-stub-url}}"
-            CoreStubButton: !FindInMap [CriButtonOnCoreStub, "Environment", !Ref Environment]
+            Environment: !Ref Environment
 
   Nino3rdPartyCICanary:
     Type: AWS::Synthetics::Canary
@@ -490,14 +473,9 @@ Resources:
                 await page.goto("${CoreStubUrl}", { waitUntil: 'domcontentloaded', timeout: 60000 })
               })
               await page.setViewport({ width: 1364, height: 695 })
-              await synthetics.executeStep('Click Check HMRC Build Evidence Requested', async function() {
-                await page.waitForSelector('.govuk-template__body > .govuk-width-container > #main-content > a:nth-child(${CoreStubButton}) > .govuk-button')
-                await page.click('.govuk-template__body > .govuk-width-container > #main-content > a:nth-child(${CoreStubButton}) > .govuk-button')
-              })
-              await navigationPromise
-              await synthetics.executeStep('Click Continue on Evidence Requested page', async function() {
-                await page.waitForSelector('form > .govuk-form-group > .govuk-fieldset > .govuk-button-group > .govuk-button')
-                await page.click('form > .govuk-form-group > .govuk-fieldset > .govuk-button-group > .govuk-button')
+              await synthetics.executeStep('Click Check HMRC Build', async function() {
+                await page.waitForSelector('input#check-hmrc-${Environment}')
+                await page.click('input#check-hmrc-${Environment}')
               })
               await navigationPromise
               await synthetics.executeStep("Click New User Hyperlink", async function () {
@@ -574,7 +552,7 @@ Resources:
               return await recordedScript();
             };
           - CoreStubUrl: !Sub "{{resolve:ssm:/check-hmrc-cri-api/smoke-tests/core-stub-url-3rdparty}}"
-            CoreStubButton: !FindInMap [CriButtonOnCoreStub, "Environment", !Ref Environment]
+            Environment: !Ref Environment
 
   Nino3rdPartyHappyCanary:
     Type: AWS::Synthetics::Canary
@@ -617,14 +595,9 @@ Resources:
                 await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 })
               })
               await page.setViewport({ width: 1364, height: 695 })
-              await synthetics.executeStep('Click Check HMRC Build Evidence Requested', async function() {
-                await page.waitForSelector('.govuk-template__body > .govuk-width-container > #main-content > a:nth-child(${CoreStubButton}) > .govuk-button')
-                await page.click('.govuk-template__body > .govuk-width-container > #main-content > a:nth-child(${CoreStubButton}) > .govuk-button')
-              })
-              await navigationPromise
-              await synthetics.executeStep('Click Continue on Evidence Requested page', async function() {
-                await page.waitForSelector('form > .govuk-form-group > .govuk-fieldset > .govuk-button-group > .govuk-button')
-                await page.click('form > .govuk-form-group > .govuk-fieldset > .govuk-button-group > .govuk-button')
+              await synthetics.executeStep('Click Check HMRC Build', async function() {
+                await page.waitForSelector('input#check-hmrc-${Environment}')
+                await page.click('input#check-hmrc-${Environment}')
               })
               await navigationPromise
               await synthetics.executeStep("Click New User Hyperlink", async function () {
@@ -714,7 +687,7 @@ Resources:
               return await recordedScript();
             };
           - CoreStubUrl: !Sub "{{resolve:ssm:/check-hmrc-cri-api/smoke-tests/core-stub-url-3rdparty}}"
-            CoreStubButton: !FindInMap [CriButtonOnCoreStub, "Environment", !Ref Environment]
+            Environment: !Ref Environment
 
 Outputs:
   CanaryNames:
