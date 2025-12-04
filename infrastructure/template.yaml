@@ -229,28 +229,28 @@ Resources:
         Handler: exports.handler
         Script: |
           const synthetics = require('Synthetics');
-            const log = require('SyntheticsLogger');
+          const log = require('SyntheticsLogger');
 
-            const { SignatureV4 } = require('@aws-sdk/signature-v4');
-            const { Sha256 } = require('@aws-crypto/sha256-js');
-            const { defaultProvider } = require('@aws-sdk/credential-provider-node');
-            const { HttpRequest } = require('@aws-sdk/protocol-http');
+          const { SignatureV4 } = require('@aws-sdk/signature-v4');
+          const { Sha256 } = require('@aws-crypto/sha256-js');
+          const { defaultProvider } = require('@aws-sdk/credential-provider-node');
+          const { HttpRequest } = require('@aws-sdk/protocol-http');
 
-            const REGION = 'eu-west-2';
-            const SERVICE = 'execute-api';
+          const REGION = 'eu-west-2';
+          const SERVICE = 'execute-api';
 
-            const environment = process.env.ENVIRONMENT;
-            const headlessURL = `https://review-hc.${environment}.account.gov.uk/oauth2/authorize`;
+          const environment = process.env.ENVIRONMENT;
+          const headlessURL = `https://review-hc.${environment}.account.gov.uk/oauth2/authorize`;
 
-            function decodeJwtPayload(token) {
+          function decodeJwtPayload(token) {
             if (!token || typeof token !== 'string') {
             throw new Error('JWT is empty or not a string');
-          }
+            }
 
             const parts = token.split('.');
             if (parts.length < 2) {
-          throw new Error(`Invalid JWT format: expected 3 parts, got ${parts.length}`);
-          }
+            throw new Error(`Invalid JWT format: expected 3 parts, got ${parts.length}`);
+            }
 
             const base64Url = parts[1];
             const base64 = base64Url
@@ -262,238 +262,226 @@ Resources:
             return JSON.parse(json);
           }
 
-            const apiCanaryBlueprint = async function () {
+          const apiCanaryBlueprint = async function () {
             const synConfig = synthetics.getConfiguration();
             synConfig.setConfig({
-          restrictedHeaders: [],
-          restrictedUrlParameters: []
-          });
+              restrictedHeaders: [],
+              restrictedUrlParameters: []
+            });
 
             const hostname = `test-resources.review-hc.${environment}.account.gov.uk`;
             const path = '/start';
-            const requestBody =
-            {
-          "shared_claims": {
-            "name": [
-              {
-                "nameParts": [
+            const requestBody = {
+              "shared_claims": {
+                "name": [
                   {
-                    "type": "GivenName",
-                    "value": "Error"
-                  },
+                    "nameParts": [
+                      {
+                        "type": "GivenName",
+                        "value": "Error"
+                      },
+                      {
+                        "type": "FamilyName",
+                        "value": "NoCidForNino"
+                      }
+                    ]
+                  }
+                ],
+                "birthDate": [
                   {
-                    "type": "FamilyName",
-                    "value": "NoCidForNino"
+                    "value": "1991-06-25"
+                  }
+                ],
+                "address": [
+                  {
+                    "buildingNumber": "10",
+                    "buildingName": "A",
+                    "streetName": "DALE ROAD",
+                    "addressLocality": "ROTHERHAM",
+                    "postalCode": "S62 5AB",
+                    "validFrom": "2021-01-01"
                   }
                 ]
               }
-            ],
-            "birthDate": [
-              {
-                "value": "1991-06-25"
-              }
-            ],
-            "address": [
-              {
-                "buildingNumber": "10",
-                "buildingName": "A",
-                "streetName": "DALE ROAD",
-                "addressLocality": "ROTHERHAM",
-                "postalCode": "S62 5AB",
-                "validFrom": "2021-01-01"
-              }
-            ]
-          }
-          };
-            const body = JSON.stringify(requestBody);
-            const contentLength = Buffer.byteLength(body, 'utf8').toString();
+            };
+          const body = JSON.stringify(requestBody);
+          const contentLength = Buffer.byteLength(body, 'utf8').toString();
 
-            const unsignedRequest = new HttpRequest({
-          protocol: 'https:',
+          const unsignedRequest = new HttpRequest({
+            protocol: 'https:',
             hostname,
-          port: 443,
-          method: 'POST',
+            port: 443,
+            method: 'POST',
             path,
-          headers: {
-            host: hostname,
-            'content-type': 'application/json',
-            'content-length': contentLength,
-            'user-agent': synthetics.getCanaryUserAgentString()
-          },
+            headers: {
+              host: hostname,
+              'content-type': 'application/json',
+              'content-length': contentLength,
+              'user-agent': synthetics.getCanaryUserAgentString()
+            },
             body
           });
 
-            const signer = new SignatureV4({
-          service: SERVICE,
-          region: REGION,
-          credentials: defaultProvider(),
-          sha256: Sha256
+          const signer = new SignatureV4({
+            service: SERVICE,
+            region: REGION,
+            credentials: defaultProvider(),
+            sha256: Sha256
           });
 
-            const signed = await signer.sign(unsignedRequest);
+          const signed = await signer.sign(unsignedRequest);
 
-            log.info(
-            `Signed request debug: ${JSON.stringify({
-               method: signed.method,
-               path: signed.path,
-               headers: signed.headers
-          })}`
-            );
-
-            const requestOptions = {
+          const requestOptions = {
             hostname,
-          method: signed.method,
-          path: signed.path,
-          port: '443',
-          protocol: 'https:',
-          headers: signed.headers,
-          body: signed.body || body
+            method: signed.method,
+            path: signed.path,
+            port: '443',
+            protocol: 'https:',
+            headers: signed.headers,
+            body: signed.body || body
           };
 
-            let responseJWT = null;
+          let responseJWT = null;
 
-            const validateOk = async (res) =>
+          const validateOk = async (res) =>
             new Promise((resolve, reject) => {
-            let responseBody = '';
+              let responseBody = '';
 
-            res.on('data', (chunk) => {
-            responseBody += chunk;
-            });
+              res.on('data', (chunk) => {
+              responseBody += chunk;
+              });
 
-            res.on('end', () => {
-          log.info(`Status: ${res.statusCode} ${res.statusMessage}`);
-          log.info(`Body: ${responseBody}`);
+              res.on('end', () => {
+                log.info(`Status: ${res.statusCode} ${res.statusMessage}`);
+                log.info(`Body: ${responseBody}`);
 
-            if (res.statusCode !== 200) {
-            return reject(
-            new Error(
-            `Expected 200 OK but got ${res.statusCode} ${res.statusMessage}. Body: ${responseBody}`
-            )
-            );
-          }
+                if (res.statusCode !== 200) {
+                  return reject(
+                    new Error(
+                      `Expected 200 OK but got ${res.statusCode} ${res.statusMessage}. Body: ${responseBody}`
+                    )
+                  );
+                }
 
-            try {
-            const json = JSON.parse(responseBody || '{}');
-            responseJWT = {
-          client_id: json.client_id,
-          request: json.request
-          };
+                try {
+                  const json = JSON.parse(responseBody || '{}');
+                  responseJWT = {
+                    client_id: json.client_id,
+                    request: json.request
+                };
 
-            if (!responseJWT.client_id || !responseJWT.request) {
-            return reject(
-            new Error(
-            `200 OK but missing client_id or request in body: ${responseBody}`
-            )
-            );
-          }
-          } catch (e) {
-            return reject(
-            new Error(
-            `200 OK but failed to parse JSON: ${e.message}. Body: ${responseBody}`
-            )
-            );
-          }
-
+                if (!responseJWT.client_id || !responseJWT.request) {
+                  return reject(
+                    new Error(
+                      `200 OK but missing client_id or request in body: ${responseBody}`
+                    )
+                  );
+                }
+            } catch (e) {
+              return reject(
+                new Error(
+                  `200 OK but failed to parse JSON: ${e.message}. Body: ${responseBody}`
+                )
+              );
+            }
             resolve();
-          });
+            });
           });
 
-            const stepConfig = {
-          includeRequestHeaders: true,
-          includeResponseHeaders: true,
-          includeRequestBody: true,
-          includeResponseBody: true,
-          continueOnHttpStepFailure: false
+          const stepConfig = {
+            includeRequestHeaders: true,
+            includeResponseHeaders: true,
+            includeRequestBody: true,
+            includeResponseBody: true,
+            continueOnHttpStepFailure: false
           };
 
-            await synthetics.executeHttpStep(
+          await synthetics.executeHttpStep(
             'Call start endpoint with signed request',
             requestOptions,
             validateOk,
             stepConfig
-            );
+          );
 
-            const queryString = new URLSearchParams({
-          client_id: responseJWT.client_id,
-          request: responseJWT.request
+          const queryString = new URLSearchParams({
+            client_id: responseJWT.client_id,
+            request: responseJWT.request
           }).toString();
 
-            const frontendUrl = `${headlessURL}?${queryString}`;
+          const frontendUrl = `${headlessURL}?${queryString}`;
 
 
-            let page = await synthetics.getPage();
-            await synthetics.executeStep('Navigate to headless stub page', async function() {
-          await page.goto(frontendUrl, { waitUntil: 'networkidle0', timeout: 60000 })
+          let page = await synthetics.getPage();
+          await synthetics.executeStep('Navigate to headless stub page', async function() {
+            await page.goto(frontendUrl, { waitUntil: 'networkidle0', timeout: 60000 })
           })
 
-            await synthetics.executeStep('Click NI Box', async function() {
+          await synthetics.executeStep('Click NI Box', async function() {
             await page.waitForSelector('.govuk-grid-row #nationalInsuranceNumber')
             await page.click('.govuk-grid-row #nationalInsuranceNumber')
           })
-            await synthetics.executeStep('Enter NINO', async function() {
+          await synthetics.executeStep('Enter NINO', async function() {
             await page.type('.govuk-grid-row #nationalInsuranceNumber', "AA123456C")
           })
-            await synthetics.executeStep('Click Continue', async function() {
+          await synthetics.executeStep('Click Continue', async function() {
             await Promise.all([
             page.waitForNavigation({
-          waitUntil: 'networkidle0',
-          timeout: 60000
-          }),
+              waitUntil: 'networkidle0',
+              timeout: 60000
+            }),
             await page.click('#main-content #continue')
-          ])
+            ])
           })
-            await synthetics.executeStep('Click Retry Button', async function() {
+          await synthetics.executeStep('Click Retry Button', async function() {
             await page.waitForSelector('.govuk-form-group > #retryNationalInsuranceRadio-fieldset #retryNationalInsuranceRadio')
             await page.click('.govuk-form-group > #retryNationalInsuranceRadio-fieldset #retryNationalInsuranceRadio')
           })
-            await synthetics.executeStep('Enter Retry NINO', async function() {
+          await synthetics.executeStep('Enter Retry NINO', async function() {
             await page.type('.govuk-form-group > #retryNationalInsuranceRadio-fieldset #retryNationalInsuranceRadio', "retryNationalInsurance")
           })
-            await synthetics.executeStep('Click Continue on NINO screen', async function() {
+          await synthetics.executeStep('Click Continue on NINO screen', async function() {
             await Promise.all([
             page.waitForNavigation({
-          waitUntil: 'networkidle0',
-          timeout: 60000
-          }),
+              waitUntil: 'networkidle0',
+              timeout: 60000
+            }),
             await page.click('#main-content #continue')
-          ])
+            ])
           })
-            await synthetics.executeStep('Click Continue on Retry screen', async function() {
+          await synthetics.executeStep('Click Continue on Retry screen', async function() {
             await Promise.all([
             page.waitForNavigation({
-          waitUntil: 'networkidle0',
-          timeout: 60000
-          }),
+              waitUntil: 'networkidle0',
+              timeout: 60000
+            }),
             await page.click('#main-content #continue')
-          ])
+            ])
           })
-            await synthetics.executeStep('Verify VerifiableCredentials from callback response', async function() {
+          await synthetics.executeStep('Verify VerifiableCredentials from callback response', async function() {
             const jwt = await page.evaluate(() => document.body.textContent.trim());
-          log.info(`JWT from page body: ${jwt}`);
 
             const claims = decodeJwtPayload(jwt);
-          log.info(`Decoded JWT payload: ${JSON.stringify(claims)}`);
+            log.info(`Decoded JWT payload: ${JSON.stringify(claims)}`);
 
             if (!claims.vc.evidence[0].strengthScore) {
-          throw new Error("Assertion failed: Strength score is not present in the VC data");
-          }
+              throw new Error("Assertion failed: Strength score is not present in the VC data");
+            }
             if (claims.vc.evidence[0].validityScore) {
-          throw new Error("Assertion failed: Validity score is present in the VC data");
-          }
+              throw new Error("Assertion failed: Validity score is present in the VC data");
+            }
             if (!claims.vc.credentialSubject.socialSecurityRecord[0]) {
-          throw new Error("Assertion failed: Personal number is not present in the VC data");
-          }
+              throw new Error("Assertion failed: Personal number is not present in the VC data");
+            }
 
             if (!claims.vc.evidence[0].ci) {
-          throw new Error("Assertion failed: CI is not present in the data");
-          }
-          })
+              throw new Error("Assertion failed: CI is not present in the data");
+              }
+            })
           };
 
-            exports.handler = async () => {
+          exports.handler = async () => {
             return await apiCanaryBlueprint();
           };
-
 
   NinoHappyCanary:
     Type: AWS::Synthetics::Canary
@@ -516,45 +504,45 @@ Resources:
       Code:
         Handler: exports.handler
         Script: |
-            var synthetics = require('Synthetics');
-            const log = require('SyntheticsLogger');
+          var synthetics = require('Synthetics');
+          const log = require('SyntheticsLogger');
 
-            const { SignatureV4 } = require('@aws-sdk/signature-v4');
-            const { Sha256 } = require('@aws-crypto/sha256-js');
-            const { defaultProvider } = require('@aws-sdk/credential-provider-node');
-            const { HttpRequest } = require('@aws-sdk/protocol-http');
+          const { SignatureV4 } = require('@aws-sdk/signature-v4');
+          const { Sha256 } = require('@aws-crypto/sha256-js');
+          const { defaultProvider } = require('@aws-sdk/credential-provider-node');
+          const { HttpRequest } = require('@aws-sdk/protocol-http');
 
-            const REGION = 'eu-west-2';
-            const SERVICE = 'execute-api';
+          const REGION = 'eu-west-2';
+          const SERVICE = 'execute-api';
 
-            const environment = process.env.ENVIRONMENT;
-            const headlessURL = `https://review-hc.${environment}.account.gov.uk/oauth2/authorize`;
+          const environment = process.env.ENVIRONMENT;
+          const headlessURL = `https://review-hc.${environment}.account.gov.uk/oauth2/authorize`;
 
-            function decodeJwtPayload(token) {
+          function decodeJwtPayload(token) {
             if (!token || typeof token !== 'string') {
-            throw new Error('JWT is empty or not a string');
+              throw new Error('JWT is empty or not a string');
             }
 
             const parts = token.split('.');
             if (parts.length < 2) {
-            throw new Error(`Invalid JWT format: expected 3 parts, got ${parts.length}`);
+              throw new Error(`Invalid JWT format: expected 3 parts, got ${parts.length}`);
             }
 
             const base64Url = parts[1];
             const base64 = base64Url
-            .replace(/-/g, '+')
-            .replace(/_/g, '/')
-            .padEnd(Math.ceil(base64Url.length / 4) * 4, '=');
+              .replace(/-/g, '+')
+              .replace(/_/g, '/')
+              .padEnd(Math.ceil(base64Url.length / 4) * 4, '=');
 
             const json = Buffer.from(base64, 'base64').toString('utf8');
             return JSON.parse(json);
-            }
+          }
 
-            const apiCanaryBlueprint = async function () {
+          const apiCanaryBlueprint = async function () {
             const synConfig = synthetics.getConfiguration();
             synConfig.setConfig({
-            restrictedHeaders: [],
-            restrictedUrlParameters: []
+              restrictedHeaders: [],
+              restrictedUrlParameters: []
             });
 
             const hostname = `test-resources.review-hc.${environment}.account.gov.uk`;
@@ -563,165 +551,155 @@ Resources:
             const contentLength = Buffer.byteLength(body, 'utf8').toString();
 
             const unsignedRequest = new HttpRequest({
-            protocol: 'https:',
-            hostname,
-            port: 443,
-            method: 'POST',
-            path,
-            headers: {
-            host: hostname,
-            'content-type': 'application/json',
-            'content-length': contentLength,
-            'user-agent': synthetics.getCanaryUserAgentString()
-            },
-            body
+              protocol: 'https:',
+              hostname,
+              port: 443,
+              method: 'POST',
+              path,
+              headers: {
+                host: hostname,
+                'content-type': 'application/json',
+                'content-length': contentLength,
+                'user-agent': synthetics.getCanaryUserAgentString()
+              },
+              body
             });
 
             const signer = new SignatureV4({
-            service: SERVICE,
-            region: REGION,
-            credentials: defaultProvider(),
-            sha256: Sha256
+              service: SERVICE,
+              region: REGION,
+              credentials: defaultProvider(),
+              sha256: Sha256
             });
 
             const signed = await signer.sign(unsignedRequest);
 
-            log.info(
-            `Signed request debug: ${JSON.stringify({
-               method: signed.method,
-               path: signed.path,
-               headers: signed.headers
-            })}`
-            );
-
             const requestOptions = {
-            hostname,
-            method: signed.method,
-            path: signed.path,
-            port: '443',
-            protocol: 'https:',
-            headers: signed.headers,
-            body: signed.body || body
+              hostname,
+              method: signed.method,
+              path: signed.path,
+              port: '443',
+              protocol: 'https:',
+              headers: signed.headers,
+              body: signed.body || body
             };
 
             let responseJWT = null;
 
             const validateOk = async (res) =>
-            new Promise((resolve, reject) => {
-            let responseBody = '';
+              new Promise((resolve, reject) => {
+                let responseBody = '';
 
-            res.on('data', (chunk) => {
-            responseBody += chunk;
-            });
+                res.on('data', (chunk) => {
+                responseBody += chunk;
+                });
 
-            res.on('end', () => {
-            log.info(`Status: ${res.statusCode} ${res.statusMessage}`);
-            log.info(`Body: ${responseBody}`);
+                res.on('end', () => {
+                  log.info(`Status: ${res.statusCode} ${res.statusMessage}`);
+                  log.info(`Body: ${responseBody}`);
 
-            if (res.statusCode !== 200) {
-            return reject(
-            new Error(
-            `Expected 200 OK but got ${res.statusCode} ${res.statusMessage}. Body: ${responseBody}`
-            )
-            );
-            }
+                  if (res.statusCode !== 200) {
+                    return reject(
+                       new Error(
+                        `Expected 200 OK but got ${res.statusCode} ${res.statusMessage}. Body: ${responseBody}`
+                    )
+                  );
+                 }
 
-            try {
-            const json = JSON.parse(responseBody || '{}');
-            responseJWT = {
-            client_id: json.client_id,
-            request: json.request
-            };
+                try {
+                  const json = JSON.parse(responseBody || '{}');
+                  responseJWT = {
+                    client_id: json.client_id,
+                    request: json.request
+                };
 
-            if (!responseJWT.client_id || !responseJWT.request) {
-            return reject(
-            new Error(
-            `200 OK but missing client_id or request in body: ${responseBody}`
-            )
-            );
-            }
+                if (!responseJWT.client_id || !responseJWT.request) {
+                  return reject(
+                   new Error(
+                    `200 OK but missing client_id or request in body: ${responseBody}`
+                  )
+                );
+              }
             } catch (e) {
-            return reject(
-            new Error(
-            `200 OK but failed to parse JSON: ${e.message}. Body: ${responseBody}`
-            )
-            );
+              return reject(
+                new Error(
+                  `200 OK but failed to parse JSON: ${e.message}. Body: ${responseBody}`
+                )
+              );
             }
-
             resolve();
             });
             });
 
-            const stepConfig = {
+          const stepConfig = {
             includeRequestHeaders: true,
             includeResponseHeaders: true,
             includeRequestBody: true,
             includeResponseBody: true,
             continueOnHttpStepFailure: false
-            };
+          };
 
-            await synthetics.executeHttpStep(
+          await synthetics.executeHttpStep(
             'Call start endpoint with signed request',
             requestOptions,
             validateOk,
             stepConfig
-            );
+          );
 
-            const queryString = new URLSearchParams({
+          const queryString = new URLSearchParams({
             client_id: responseJWT.client_id,
             request: responseJWT.request
-            }).toString();
+          }).toString();
 
-            const frontendUrl = `${headlessURL}?${queryString}`;
+          const frontendUrl = `${headlessURL}?${queryString}`;
 
 
-            let page = await synthetics.getPage();
-            await synthetics.executeStep('Navigate to headless stub page', async function() {
+          let page = await synthetics.getPage();
+          await synthetics.executeStep('Navigate to headless stub page', async function() {
             await page.goto(frontendUrl, { waitUntil: 'networkidle0', timeout: 60000 })
-            })
+          })
 
-            await synthetics.executeStep('Click NI Box', async function() {
+          await synthetics.executeStep('Click NI Box', async function() {
             await page.waitForSelector('.govuk-grid-row #nationalInsuranceNumber')
             await page.click('.govuk-grid-row #nationalInsuranceNumber')
-            })
-            await synthetics.executeStep('Enter NINO', async function() {
+          })
+          await synthetics.executeStep('Enter NINO', async function() {
             await page.type('.govuk-grid-row #nationalInsuranceNumber', "AA123456C")
-            })
-            await synthetics.executeStep('Click Continue', async function() {
+          })
+          await synthetics.executeStep('Click Continue', async function() {
             await Promise.all([
-            page.waitForNavigation({
-            waitUnit: 'networkidle0',
-            timeout: 60000
-            }),
-            await page.click('#main-content #continue')
+              page.waitForNavigation({
+                waitUnit: 'networkidle0',
+                timeout: 60000
+              }),
+              await page.click('#main-content #continue')
             ])
-            })
-            await synthetics.executeStep('Verify VerifiableCredentials from callback response', async function() {
+          })
+          await synthetics.executeStep('Verify VerifiableCredentials from callback response', async function() {
             const jwt = await page.evaluate(() => document.body.textContent.trim());
-            log.info(`JWT from page body: ${jwt}`);
 
             const claims = decodeJwtPayload(jwt);
             log.info(`Decoded JWT payload: ${JSON.stringify(claims)}`);
 
             if (!claims.vc.evidence[0].strengthScore) {
-            throw new Error("Assertion failed: Strength score is not present in the VC data");
+              throw new Error("Assertion failed: Strength score is not present in the VC data");
             }
             if (!claims.vc.evidence[0].validityScore) {
-            throw new Error("Assertion failed: Validity score is not present in the VC data");
+              throw new Error("Assertion failed: Validity score is not present in the VC data");
             }
             if (!claims.vc.credentialSubject.socialSecurityRecord[0]) {
-            throw new Error("Assertion failed: Personal number is not present in the VC data");
+              throw new Error("Assertion failed: Personal number is not present in the VC data");
             }
 
             if (claims.vc.evidence[0].ci) {
-            throw new Error("Assertion failed: CI is present in the data");
+              throw new Error("Assertion failed: CI is present in the data");
             }
             })
-            };
+          };
 
-            exports.handler = async () => {
+          exports.handler = async () => {
             return await apiCanaryBlueprint();
-            };
+          };
 
   Nino3rdPartyCICanary:
     Type: AWS::Synthetics::Canary
@@ -831,7 +809,6 @@ Resources:
                   const element = document.querySelector("[id='data']");
                   return element.textContent.trim();
                 });
-                log.info('Extracted data:', data);
                 const json = JSON.parse(data);
                 if (!json.vc.evidence[0].ci) {
                   throw new Error("Assertion failed: 'CI' is not present in the data");
@@ -966,7 +943,6 @@ Resources:
                   const element = document.querySelector("[id='data']");
                   return element.textContent.trim();
                 });
-                log.info('Extracted data:', data);
                 const json = JSON.parse(data);
                 if (json.vc.evidence[0].ci) {
                   throw new Error("Assertion failed: CI is present in the data");
