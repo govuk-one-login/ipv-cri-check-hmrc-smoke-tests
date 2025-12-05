@@ -1,12 +1,12 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Transform: [AWS::LanguageExtensions, AWS::Serverless-2016-10-31]
+Transform: [ AWS::LanguageExtensions, AWS::Serverless-2016-10-31 ]
 Description: Digital Identity IPV CRI Ipv-Cri-Check-Hmrc-Smoke-Tests API
 
 Parameters:
   Environment:
     Type: String
     Default: dev
-    AllowedValues: [dev, localdev, build, staging, integration, production]
+    AllowedValues: [ dev, localdev, build, staging, integration, production ]
     ConstraintDescription: Must be dev, localdev, build, staging, integration or production
   CodeSigningConfigArn:
     Type: String
@@ -19,11 +19,11 @@ Parameters:
     Default: "false"
 
 Conditions:
-  UsePermissionsBoundary: !Not [!Equals [!Ref PermissionsBoundary, ""]]
-  EnforceCodeSigning: !Not [!Equals [!Ref CodeSigningConfigArn, ""]]
-  IsNotDevEnvironment: !Not [!Equals [!Ref Environment, dev]]
+  UsePermissionsBoundary: !Not [ !Equals [ !Ref PermissionsBoundary, "" ] ]
+  EnforceCodeSigning: !Not [ !Equals [ !Ref CodeSigningConfigArn, "" ] ]
+  IsNotDevEnvironment: !Not [ !Equals [ !Ref Environment, dev ] ]
   DeployAlarms: !Or
-    - !Equals [!Ref DeployAlarmsInDevEnvironment, "true"]
+    - !Equals [ !Ref DeployAlarmsInDevEnvironment, "true" ]
     - !Condition IsNotDevEnvironment
 
 Globals:
@@ -31,8 +31,8 @@ Globals:
     Timeout: 30
     CodeUri: ..
     Runtime: nodejs22.x
-    Architectures: [arm64]
-    PermissionsBoundary: !If [UsePermissionsBoundary, !Ref PermissionsBoundary, !Ref AWS::NoValue]
+    Architectures: [ arm64 ]
+    PermissionsBoundary: !If [ UsePermissionsBoundary, !Ref PermissionsBoundary, !Ref AWS::NoValue ]
     Environment:
       Variables:
         NODE_OPTIONS: --enable-source-maps
@@ -134,7 +134,7 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       PermissionsBoundary:
-        !If [UsePermissionsBoundary, !Ref PermissionsBoundary, !Ref AWS::NoValue]
+        !If [ UsePermissionsBoundary, !Ref PermissionsBoundary, !Ref AWS::NoValue ]
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -182,8 +182,8 @@ Resources:
     Properties:
       Timeout: 60
       Handler: lambdas/canary-runner/src/canary-runner-handler.lambdaHandler
-      FunctionName: !Select [3, !Split ["/", !Ref CanaryRunnerFunctionLogGroup]]
-      CodeSigningConfigArn: !If [EnforceCodeSigning, !Ref CodeSigningConfigArn, !Ref AWS::NoValue]
+      FunctionName: !Select [ 3, !Split [ "/", !Ref CanaryRunnerFunctionLogGroup ] ]
+      CodeSigningConfigArn: !If [ EnforceCodeSigning, !Ref CodeSigningConfigArn, !Ref AWS::NoValue ]
       LoggingConfig:
         LogGroup: !Ref CanaryRunnerFunctionLogGroup
       Policies:
@@ -214,9 +214,12 @@ Resources:
       StartCanaryAfterCreation: true
       ArtifactS3Location: !Sub s3://${CanariesBucket}/ci
       ExecutionRoleArn: !GetAtt CanariesRole.Arn
-      RuntimeVersion: syn-nodejs-puppeteer-10.0
+      RuntimeVersion: syn-nodejs-puppeteer-13.0
       Schedule:
         Expression: rate(15 minutes)
+      RunConfig:
+        EnvironmentVariables:
+           ENVIRONMENT: !Ref Environment
       Tags:
         - Key: Blueprint
           Value: canaryRecorder
@@ -224,109 +227,261 @@ Resources:
           Value: govuk-one-login/ipv-cri-check-hmrc-smoke-tests
       Code:
         Handler: exports.handler
-        Script: !Sub
-          - |
-            var synthetics = require('Synthetics');
-            const log = require('SyntheticsLogger');
+        Script: |
+          const synthetics = require('Synthetics');
+          const log = require('SyntheticsLogger');
 
-            const clickByText = async (page, text) => {
-            const linkHandlers = await page.$$('a');
-              for (const linkHandler of linkHandlers) {
-              const linkHandlerText = await (await linkHandler.getProperty('textContent')).jsonValue();
-                if (linkHandlerText && linkHandlerText.trim().includes(text)) {
-                  await linkHandler.click();
-                  return;
-                }
+          const { SignatureV4 } = require('@aws-sdk/signature-v4');
+          const { Sha256 } = require('@aws-crypto/sha256-js');
+          const { defaultProvider } = require('@aws-sdk/credential-provider-node');
+          const { HttpRequest } = require('@aws-sdk/protocol-http');
+
+          const REGION = 'eu-west-2';
+          const SERVICE = 'execute-api';
+
+          const environment = process.env.ENVIRONMENT;
+          const headlessURL = `https://review-hc.${environment}.account.gov.uk/oauth2/authorize`;
+
+          function decodeJwtPayload(token) {
+            if (!token || typeof token !== 'string') {
+            throw new Error('JWT is empty or not a string');
+            }
+
+            const parts = token.split('.');
+            if (parts.length < 2) {
+            throw new Error(`Invalid JWT format: expected 3 parts, got ${parts.length}`);
+            }
+
+            const base64Url = parts[1];
+            const base64 = base64Url
+            .replace(/-/g, '+')
+            .replace(/_/g, '/')
+            .padEnd(Math.ceil(base64Url.length / 4) * 4, '=');
+
+            const json = Buffer.from(base64, 'base64').toString('utf8');
+            return JSON.parse(json);
+          }
+
+          const apiCanaryBlueprint = async function () {
+            const synConfig = synthetics.getConfiguration();
+            synConfig.setConfig({
+              restrictedHeaders: [],
+              restrictedUrlParameters: []
+            });
+
+            const hostname = `test-resources.review-hc.${environment}.account.gov.uk`;
+            const path = '/start';
+            const requestBody = {
+              "shared_claims": {
+                "name": [
+                  {
+                    "nameParts": [
+                      {
+                        "type": "GivenName",
+                        "value": "Error"
+                      },
+                      {
+                        "type": "FamilyName",
+                        "value": "NoCidForNino"
+                      }
+                    ]
+                  }
+                ],
+                "birthDate": [
+                  {
+                    "value": "1991-06-25"
+                  }
+                ],
+                "address": [
+                  {
+                    "buildingNumber": "10",
+                    "buildingName": "A",
+                    "streetName": "DALE ROAD",
+                    "addressLocality": "ROTHERHAM",
+                    "postalCode": "S62 5AB",
+                    "validFrom": "2021-01-01"
+                  }
+                ]
               }
-            throw new Error('Link not found: ' + text);
             };
-            const recordedScript = async function () {
-              let page = await synthetics.getPage();
-              const navigationPromise = page.waitForNavigation()
-              await synthetics.executeStep('Goto Stubs Page', async function() {
-                await page.goto("${CoreStubUrl}", { waitUntil: 'domcontentloaded', timeout: 60000 })
-              })
-              await page.setViewport({ width: 1364, height: 695 })
-              await synthetics.executeStep('Click Check HMRC Build', async function() {
-                await page.waitForSelector('input#check-hmrc-${Environment}')
-                await page.click('input#check-hmrc-${Environment}')
-              })
-              await navigationPromise
-              await synthetics.executeStep("Click New User Hyperlink", async function () {
-                await clickByText(page, "New User");
+          const body = JSON.stringify(requestBody);
+          const contentLength = Buffer.byteLength(body, 'utf8').toString();
+
+          const unsignedRequest = new HttpRequest({
+            protocol: 'https:',
+            hostname,
+            port: 443,
+            method: 'POST',
+            path,
+            headers: {
+              host: hostname,
+              'content-type': 'application/json',
+              'content-length': contentLength,
+              'user-agent': synthetics.getCanaryUserAgentString()
+            },
+            body
+          });
+
+          const signer = new SignatureV4({
+            service: SERVICE,
+            region: REGION,
+            credentials: defaultProvider(),
+            sha256: Sha256
+          });
+
+          const signed = await signer.sign(unsignedRequest);
+
+          const requestOptions = {
+            hostname,
+            method: signed.method,
+            path: signed.path,
+            port: '443',
+            protocol: 'https:',
+            headers: signed.headers,
+            body: signed.body || body
+          };
+
+          let responseJWT = null;
+
+          const validateOk = async (res) =>
+            new Promise((resolve, reject) => {
+              let responseBody = '';
+
+              res.on('data', (chunk) => {
+              responseBody += chunk;
               });
-              await navigationPromise
-              await synthetics.executeStep('Click Firstname Box', async function() {
-                await page.waitForSelector('.govuk-width-container > #main-content #firstName')
-                await page.click('.govuk-width-container > #main-content #firstName')
-              })
-              await synthetics.executeStep('Enter Firstname', async function() {
-                await page.type('.govuk-width-container > #main-content #firstName', "Error")
-              })
-              await synthetics.executeStep('Click Surname Box', async function() {
-                await page.waitForSelector('.govuk-width-container > #main-content #surname')
-                await page.click('.govuk-width-container > #main-content #surname')
-              })
-              await synthetics.executeStep('Enter Surname', async function() {
-                await page.type('.govuk-width-container > #main-content #surname', "NoCidForNino")
-              })
-              await synthetics.executeStep('Click Go', async function() {
-                await page.waitForSelector('.govuk-template__body > .govuk-width-container > #main-content > form > .govuk-button')
-                await page.click('.govuk-template__body > .govuk-width-container > #main-content > form > .govuk-button')
-              })
-              await navigationPromise
-              await synthetics.executeStep('Click NI Box', async function() {
-                await page.waitForSelector('.govuk-grid-row #nationalInsuranceNumber')
-                await page.click('.govuk-grid-row #nationalInsuranceNumber')
-              })
-              await synthetics.executeStep('Enter NINO', async function() {
-                await page.type('.govuk-grid-row #nationalInsuranceNumber', "AA123456C")
-              })
-              await synthetics.executeStep('Click Continue', async function() {
-                await page.waitForSelector('#main-content #continue')
-                await page.click('#main-content #continue')
-              })
-              await navigationPromise
-              await synthetics.executeStep('Click Retry Button', async function() {
-                await page.waitForSelector('.govuk-form-group > #retryNationalInsuranceRadio-fieldset #retryNationalInsuranceRadio')
-                await page.click('.govuk-form-group > #retryNationalInsuranceRadio-fieldset #retryNationalInsuranceRadio')
-              })
-              await synthetics.executeStep('Enter Retry NINO', async function() {
-                await page.type('.govuk-form-group > #retryNationalInsuranceRadio-fieldset #retryNationalInsuranceRadio', "retryNationalInsurance")
-              })
-              await synthetics.executeStep('Click Continue', async function() {
-                await page.waitForSelector('#main-content #continue')
-                await page.click('#main-content #continue')
-              })
-              await navigationPromise
-              await synthetics.executeStep('Click Continue', async function() {
-                await page.waitForSelector('#main-content #continue')
-                await page.click('#main-content #continue')
-              })
-              await navigationPromise
-              await synthetics.executeStep('VerifyVerifiableCredentials', async function() {
-                const spanSelector = '.govuk-details__summary-text';
-                await page.waitForSelector(spanSelector, { timeout: 60000 });
-                const headingSelector = '.govuk-heading-l';
-                await page.waitForSelector(headingSelector, { timeout: 60000 });
-              })
-              await synthetics.executeStep('Get VC And Assert CI', async function() {
-                const data = await page.evaluate(() => {
-                  const element = document.querySelector("[id='data']");
-                  return element.textContent.trim();
-                });
-                log.info('Extracted data:', data);
-                const json = JSON.parse(data);
-                if (!json.vc.evidence[0].ci) {
-                  throw new Error("Assertion failed: 'CI' is not present in the data");
+
+              res.on('end', () => {
+                log.info(`Status: ${res.statusCode} ${res.statusMessage}`);
+                log.info(`Body: ${responseBody}`);
+
+                if (res.statusCode !== 200) {
+                  return reject(
+                    new Error(
+                      `Expected 200 OK but got ${res.statusCode} ${res.statusMessage}. Body: ${responseBody}`
+                    )
+                  );
                 }
-              })
-            };
-            exports.handler = async () => {
-              return await recordedScript();
-            };
-          - CoreStubUrl: !Sub "{{resolve:ssm:/check-hmrc-cri-api/smoke-tests/core-stub-url}}"
-            Environment: !Ref Environment
+
+                try {
+                  const json = JSON.parse(responseBody || '{}');
+                  responseJWT = {
+                    client_id: json.client_id,
+                    request: json.request
+                };
+
+                if (!responseJWT.client_id || !responseJWT.request) {
+                  return reject(
+                    new Error(
+                      `200 OK but missing client_id or request in body: ${responseBody}`
+                    )
+                  );
+                }
+            } catch (e) {
+              return reject(
+                new Error(
+                  `200 OK but failed to parse JSON: ${e.message}. Body: ${responseBody}`
+                )
+              );
+            }
+            resolve();
+            });
+          });
+
+          const stepConfig = {
+            includeRequestHeaders: true,
+            includeResponseHeaders: true,
+            includeRequestBody: true,
+            includeResponseBody: true,
+            continueOnHttpStepFailure: false
+          };
+
+          await synthetics.executeHttpStep(
+            'Call start endpoint with signed request',
+            requestOptions,
+            validateOk,
+            stepConfig
+          );
+
+          const queryString = new URLSearchParams({
+            client_id: responseJWT.client_id,
+            request: responseJWT.request
+          }).toString();
+
+          const frontendUrl = `${headlessURL}?${queryString}`;
+
+
+          let page = await synthetics.getPage();
+          await synthetics.executeStep('Navigate to headless stub page', async function() {
+            await page.goto(frontendUrl, { waitUntil: 'networkidle0', timeout: 60000 })
+          })
+
+          await synthetics.executeStep('Click NI Box', async function() {
+            await page.waitForSelector('.govuk-grid-row #nationalInsuranceNumber')
+            await page.click('.govuk-grid-row #nationalInsuranceNumber')
+          })
+          await synthetics.executeStep('Enter NINO', async function() {
+            await page.type('.govuk-grid-row #nationalInsuranceNumber', "AA123456C")
+          })
+          await synthetics.executeStep('Click Continue', async function() {
+            await Promise.all([
+            page.waitForNavigation({
+              waitUntil: 'networkidle0',
+              timeout: 60000
+            }),
+            await page.click('#main-content #continue')
+            ])
+          })
+          await synthetics.executeStep('Click Retry Button', async function() {
+            await page.waitForSelector('.govuk-form-group > #retryNationalInsuranceRadio-fieldset #retryNationalInsuranceRadio')
+            await page.click('.govuk-form-group > #retryNationalInsuranceRadio-fieldset #retryNationalInsuranceRadio')
+          })
+          await synthetics.executeStep('Enter Retry NINO', async function() {
+            await page.type('.govuk-form-group > #retryNationalInsuranceRadio-fieldset #retryNationalInsuranceRadio', "retryNationalInsurance")
+          })
+          await synthetics.executeStep('Click Continue on NINO screen', async function() {
+            await Promise.all([
+            page.waitForNavigation({
+              waitUntil: 'networkidle0',
+              timeout: 60000
+            }),
+            await page.click('#main-content #continue')
+            ])
+          })
+          await synthetics.executeStep('Click Continue on Retry screen', async function() {
+            await Promise.all([
+            page.waitForNavigation({
+              waitUntil: 'networkidle0',
+              timeout: 60000
+            }),
+            await page.click('#main-content #continue')
+            ])
+          })
+          await synthetics.executeStep('Verify VerifiableCredentials from callback response', async function() {
+            const jwt = await page.evaluate(() => document.body.textContent.trim());
+
+            const claims = decodeJwtPayload(jwt);
+            log.info(`Decoded JWT payload: ${JSON.stringify(claims)}`);
+
+            if (!claims.vc.evidence[0].strengthScore) {
+              throw new Error("Assertion failed: Strength score is not present in the VC data");
+            }
+            if (claims.vc.evidence[0].validityScore) {
+              throw new Error("Assertion failed: Validity score is present in the VC data");
+            }
+            if (!claims.vc.credentialSubject.socialSecurityRecord[0]) {
+              throw new Error("Assertion failed: Personal number is not present in the VC data");
+            }
+
+            if (!claims.vc.evidence[0].ci) {
+              throw new Error("Assertion failed: CI is not present in the data");
+              }
+            })
+          };
+
+          exports.handler = async () => {
+            return await apiCanaryBlueprint();
+          };
 
   NinoHappyCanary:
     Type: AWS::Synthetics::Canary
@@ -335,9 +490,12 @@ Resources:
       StartCanaryAfterCreation: true
       ArtifactS3Location: !Sub s3://${CanariesBucket}/happy
       ExecutionRoleArn: !GetAtt CanariesRole.Arn
-      RuntimeVersion: syn-nodejs-puppeteer-10.0
+      RuntimeVersion: syn-nodejs-puppeteer-13.0
       Schedule:
         Expression: rate(15 minutes)
+      RunConfig:
+        EnvironmentVariables:
+          ENVIRONMENT: !Ref Environment
       Tags:
         - Key: Blueprint
           Value: canaryRecorder
@@ -345,93 +503,203 @@ Resources:
           Value: govuk-one-login/ipv-cri-check-hmrc-smoke-tests
       Code:
         Handler: exports.handler
-        Script: !Sub
-          - |
-            var synthetics = require('Synthetics');
-            const log = require('SyntheticsLogger');
+        Script: |
+          var synthetics = require('Synthetics');
+          const log = require('SyntheticsLogger');
 
-            const clickByText = async (page, text) => {
-            const linkHandlers = await page.$$('a');
-              for (const linkHandler of linkHandlers) {
-              const linkHandlerText = await (await linkHandler.getProperty('textContent')).jsonValue();
-                if (linkHandlerText && linkHandlerText.trim().includes(text)) {
-              await linkHandler.click();
-              return;
-              }
+          const { SignatureV4 } = require('@aws-sdk/signature-v4');
+          const { Sha256 } = require('@aws-crypto/sha256-js');
+          const { defaultProvider } = require('@aws-sdk/credential-provider-node');
+          const { HttpRequest } = require('@aws-sdk/protocol-http');
+
+          const REGION = 'eu-west-2';
+          const SERVICE = 'execute-api';
+
+          const environment = process.env.ENVIRONMENT;
+          const headlessURL = `https://review-hc.${environment}.account.gov.uk/oauth2/authorize`;
+
+          function decodeJwtPayload(token) {
+            if (!token || typeof token !== 'string') {
+              throw new Error('JWT is empty or not a string');
             }
-              throw new Error('Link not found: ' + text);
+
+            const parts = token.split('.');
+            if (parts.length < 2) {
+              throw new Error(`Invalid JWT format: expected 3 parts, got ${parts.length}`);
+            }
+
+            const base64Url = parts[1];
+            const base64 = base64Url
+              .replace(/-/g, '+')
+              .replace(/_/g, '/')
+              .padEnd(Math.ceil(base64Url.length / 4) * 4, '=');
+
+            const json = Buffer.from(base64, 'base64').toString('utf8');
+            return JSON.parse(json);
+          }
+
+          const apiCanaryBlueprint = async function () {
+            const synConfig = synthetics.getConfiguration();
+            synConfig.setConfig({
+              restrictedHeaders: [],
+              restrictedUrlParameters: []
+            });
+
+            const hostname = `test-resources.review-hc.${environment}.account.gov.uk`;
+            const path = '/start';
+            const body = '{}';
+            const contentLength = Buffer.byteLength(body, 'utf8').toString();
+
+            const unsignedRequest = new HttpRequest({
+              protocol: 'https:',
+              hostname,
+              port: 443,
+              method: 'POST',
+              path,
+              headers: {
+                host: hostname,
+                'content-type': 'application/json',
+                'content-length': contentLength,
+                'user-agent': synthetics.getCanaryUserAgentString()
+              },
+              body
+            });
+
+            const signer = new SignatureV4({
+              service: SERVICE,
+              region: REGION,
+              credentials: defaultProvider(),
+              sha256: Sha256
+            });
+
+            const signed = await signer.sign(unsignedRequest);
+
+            const requestOptions = {
+              hostname,
+              method: signed.method,
+              path: signed.path,
+              port: '443',
+              protocol: 'https:',
+              headers: signed.headers,
+              body: signed.body || body
             };
-            const recordedScript = async function () {
-              let page = await synthetics.getPage();
-              const navigationPromise = page.waitForNavigation()
-              await synthetics.executeStep('Goto Stubs Page', async function() {
-                const url = '${CoreStubUrl}';
-                await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 })
-              })
-              await page.setViewport({ width: 1364, height: 695 })
-              await synthetics.executeStep('Click Check HMRC Build', async function() {
-                await page.waitForSelector('input#check-hmrc-${Environment}')
-                await page.click('input#check-hmrc-${Environment}')
-              })
-              await navigationPromise
-              await synthetics.executeStep("Click New User Hyperlink", async function () {
-                await clickByText(page, "New User");
-              });
-              await navigationPromise
-              await synthetics.executeStep('Click Firstname Box', async function() {
-                await page.waitForSelector('.govuk-width-container > #main-content #firstName')
-                await page.click('.govuk-width-container > #main-content #firstName')
-              })
-              await synthetics.executeStep('Enter Firstname', async function() {
-                await page.type('.govuk-width-container > #main-content #firstName', "Jim")
-              })
-              await synthetics.executeStep('Click Surname Box', async function() {
-                await page.waitForSelector('.govuk-width-container > #main-content #surname')
-                await page.click('.govuk-width-container > #main-content #surname')
-              })
-              await synthetics.executeStep('Enter Surname', async function() {
-                await page.type('.govuk-width-container > #main-content #surname', "Ferguson")
-              })
-              await synthetics.executeStep('Click Go', async function() {
-                await page.waitForSelector('.govuk-template__body > .govuk-width-container > #main-content > form > .govuk-button')
-                await page.click('.govuk-template__body > .govuk-width-container > #main-content > form > .govuk-button')
-              })
-              await navigationPromise
-              await synthetics.executeStep('Click NI Box', async function() {
-                await page.waitForSelector('.govuk-grid-row #nationalInsuranceNumber')
-                await page.click('.govuk-grid-row #nationalInsuranceNumber')
-              })
-              await synthetics.executeStep('Enter NINO', async function() {
-                await page.type('.govuk-grid-row #nationalInsuranceNumber', "AA123456C")
-              })
-              await synthetics.executeStep('Click Continue', async function() {
-                await page.waitForSelector('#main-content #continue')
-                await page.click('#main-content #continue')
-              })
-              await navigationPromise
-              await synthetics.executeStep('VerifyVerifiableCredentials', async function() {
-                const spanSelector = '.govuk-details__summary-text';
-                await page.waitForSelector(spanSelector, { timeout: 60000 });
-                const headingSelector = '.govuk-heading-l';
-                await page.waitForSelector(headingSelector, { timeout: 60000 });
-              })
-              await synthetics.executeStep('Get VC And Assert CI', async function() {
-                const data = await page.evaluate(() => {
-                  const element = document.querySelector("[id='data']");
-                  return element.textContent.trim();
+
+            let responseJWT = null;
+
+            const validateOk = async (res) =>
+              new Promise((resolve, reject) => {
+                let responseBody = '';
+
+                res.on('data', (chunk) => {
+                responseBody += chunk;
                 });
-                log.info('Extracted data:', data);
-                const json = JSON.parse(data);
-                if (json.vc.evidence[0].ci) {
-                  throw new Error("Assertion failed: CI is present in the data");
-                }
-              })
-            };
-            exports.handler = async () => {
-              return await recordedScript();
-            };
-          - CoreStubUrl: !Sub "{{resolve:ssm:/check-hmrc-cri-api/smoke-tests/core-stub-url}}"
-            Environment: !Ref Environment
+
+                res.on('end', () => {
+                  log.info(`Status: ${res.statusCode} ${res.statusMessage}`);
+                  log.info(`Body: ${responseBody}`);
+
+                  if (res.statusCode !== 200) {
+                    return reject(
+                       new Error(
+                        `Expected 200 OK but got ${res.statusCode} ${res.statusMessage}. Body: ${responseBody}`
+                    )
+                  );
+                 }
+
+                try {
+                  const json = JSON.parse(responseBody || '{}');
+                  responseJWT = {
+                    client_id: json.client_id,
+                    request: json.request
+                };
+
+                if (!responseJWT.client_id || !responseJWT.request) {
+                  return reject(
+                   new Error(
+                    `200 OK but missing client_id or request in body: ${responseBody}`
+                  )
+                );
+              }
+            } catch (e) {
+              return reject(
+                new Error(
+                  `200 OK but failed to parse JSON: ${e.message}. Body: ${responseBody}`
+                )
+              );
+            }
+            resolve();
+            });
+            });
+
+          const stepConfig = {
+            includeRequestHeaders: true,
+            includeResponseHeaders: true,
+            includeRequestBody: true,
+            includeResponseBody: true,
+            continueOnHttpStepFailure: false
+          };
+
+          await synthetics.executeHttpStep(
+            'Call start endpoint with signed request',
+            requestOptions,
+            validateOk,
+            stepConfig
+          );
+
+          const queryString = new URLSearchParams({
+            client_id: responseJWT.client_id,
+            request: responseJWT.request
+          }).toString();
+
+          const frontendUrl = `${headlessURL}?${queryString}`;
+
+
+          let page = await synthetics.getPage();
+          await synthetics.executeStep('Navigate to headless stub page', async function() {
+            await page.goto(frontendUrl, { waitUntil: 'networkidle0', timeout: 60000 })
+          })
+
+          await synthetics.executeStep('Click NI Box', async function() {
+            await page.waitForSelector('.govuk-grid-row #nationalInsuranceNumber')
+            await page.click('.govuk-grid-row #nationalInsuranceNumber')
+          })
+          await synthetics.executeStep('Enter NINO', async function() {
+            await page.type('.govuk-grid-row #nationalInsuranceNumber', "AA123456C")
+          })
+          await synthetics.executeStep('Click Continue', async function() {
+            await Promise.all([
+              page.waitForNavigation({
+                waitUnit: 'networkidle0',
+                timeout: 60000
+              }),
+              await page.click('#main-content #continue')
+            ])
+          })
+          await synthetics.executeStep('Verify VerifiableCredentials from callback response', async function() {
+            const jwt = await page.evaluate(() => document.body.textContent.trim());
+
+            const claims = decodeJwtPayload(jwt);
+            log.info(`Decoded JWT payload: ${JSON.stringify(claims)}`);
+
+            if (!claims.vc.evidence[0].strengthScore) {
+              throw new Error("Assertion failed: Strength score is not present in the VC data");
+            }
+            if (!claims.vc.evidence[0].validityScore) {
+              throw new Error("Assertion failed: Validity score is not present in the VC data");
+            }
+            if (!claims.vc.credentialSubject.socialSecurityRecord[0]) {
+              throw new Error("Assertion failed: Personal number is not present in the VC data");
+            }
+
+            if (claims.vc.evidence[0].ci) {
+              throw new Error("Assertion failed: CI is present in the data");
+            }
+            })
+          };
+
+          exports.handler = async () => {
+            return await apiCanaryBlueprint();
+          };
 
   Nino3rdPartyCICanary:
     Type: AWS::Synthetics::Canary
@@ -541,7 +809,6 @@ Resources:
                   const element = document.querySelector("[id='data']");
                   return element.textContent.trim();
                 });
-                log.info('Extracted data:', data);
                 const json = JSON.parse(data);
                 if (!json.vc.evidence[0].ci) {
                   throw new Error("Assertion failed: 'CI' is not present in the data");
@@ -676,7 +943,6 @@ Resources:
                   const element = document.querySelector("[id='data']");
                   return element.textContent.trim();
                 });
-                log.info('Extracted data:', data);
                 const json = JSON.parse(data);
                 if (json.vc.evidence[0].ci) {
                   throw new Error("Assertion failed: CI is present in the data");
