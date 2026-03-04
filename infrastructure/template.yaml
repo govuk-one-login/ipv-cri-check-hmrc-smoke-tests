@@ -38,6 +38,7 @@ Globals:
         NODE_OPTIONS: --enable-source-maps
 
 Resources:
+  # CloudWatch Alarms and Resources
   Nino3rdPartyHappyCanaryAlarm:
     Type: AWS::CloudWatch::Alarm
     Condition: DeployAlarms
@@ -54,9 +55,9 @@ Resources:
       Threshold: 75
       TreatMissingData: breaching
       OKActions:
-        - !ImportValue platform-alarm-warning-alert-topic
+        - !ImportValue build-notifications-WarningAlertsTopicArn
       AlarmActions:
-        - !ImportValue platform-alarm-warning-alert-topic
+        - !ImportValue build-notifications-WarningAlertsTopicArn
       Dimensions:
         - Name: CanaryName
           Value: !Ref Nino3rdPartyHappyCanary
@@ -77,9 +78,9 @@ Resources:
       Threshold: 75
       TreatMissingData: breaching
       OKActions:
-        - !ImportValue platform-alarm-warning-alert-topic
+        - !ImportValue build-notifications-WarningAlertsTopicArn
       AlarmActions:
-        - !ImportValue platform-alarm-warning-alert-topic
+        - !ImportValue build-notifications-WarningAlertsTopicArn
       Dimensions:
         - Name: CanaryName
           Value: !Ref NinoHappyCanary
@@ -100,9 +101,9 @@ Resources:
       Threshold: 75
       TreatMissingData: breaching
       OKActions:
-        - !ImportValue platform-alarm-warning-alert-topic
+        - !ImportValue build-notifications-WarningAlertsTopicArn
       AlarmActions:
-        - !ImportValue platform-alarm-warning-alert-topic
+        - !ImportValue build-notifications-WarningAlertsTopicArn
       Dimensions:
         - Name: CanaryName
           Value: !Ref NinoCICanary
@@ -123,9 +124,9 @@ Resources:
       Threshold: 75
       TreatMissingData: breaching
       OKActions:
-        - !ImportValue platform-alarm-warning-alert-topic
+        - !ImportValue build-notifications-WarningAlertsTopicArn
       AlarmActions:
-        - !ImportValue platform-alarm-warning-alert-topic
+        - !ImportValue build-notifications-WarningAlertsTopicArn
       Dimensions:
         - Name: CanaryName
           Value: !Ref Nino3rdPartyCICanary
