@@ -789,12 +789,12 @@ Resources:
               await synthetics.executeStep('Enter Retry NINO', async function() {
                 await page.type('.govuk-form-group > #retryNationalInsuranceRadio-fieldset #retryNationalInsuranceRadio', "retryNationalInsurance")
               })
-              await synthetics.executeStep('Click Continue', async function() {
+              await synthetics.executeStep('Click Continue on NINO screen', async function() {
                 await page.waitForSelector('#main-content #continue')
                 await page.click('#main-content #continue')
               })
               await navigationPromise
-              await synthetics.executeStep('Click Continue', async function() {
+              await synthetics.executeStep('Click Continue on Retry screen', async function() {
                 await page.waitForSelector('#main-content #continue')
                 await page.click('#main-content #continue')
               })
