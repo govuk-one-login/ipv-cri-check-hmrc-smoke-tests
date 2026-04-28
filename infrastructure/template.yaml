@@ -709,7 +709,7 @@ Resources:
       StartCanaryAfterCreation: true
       ArtifactS3Location: !Sub s3://${CanariesBucket}/3rd-party-ci
       ExecutionRoleArn: !GetAtt CanariesRole.Arn
-      RuntimeVersion: syn-nodejs-puppeteer-10.0
+      RuntimeVersion: syn-nodejs-puppeteer-13.0
       Schedule:
         Expression: rate(15 minutes)
       Tags:
@@ -829,7 +829,7 @@ Resources:
       StartCanaryAfterCreation: true
       ArtifactS3Location: !Sub s3://${CanariesBucket}/3rd-party-happy
       ExecutionRoleArn: !GetAtt CanariesRole.Arn
-      RuntimeVersion: syn-nodejs-puppeteer-10.0
+      RuntimeVersion: syn-nodejs-puppeteer-13.0
       Schedule:
         Expression: rate(15 minutes)
       Tags:
