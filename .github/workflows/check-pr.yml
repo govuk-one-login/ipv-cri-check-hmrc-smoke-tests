@@ -15,6 +15,7 @@ jobs:
         uses: govuk-one-login/github-actions/code-quality/run-pre-commit@4aa6635feaed2295171e4637a9b1ef7cf03b1e96
         with:
           all-files: true
+          install-dependencies: true
 
   deploy:
     name: Preview
