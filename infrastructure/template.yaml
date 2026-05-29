@@ -1,12 +1,12 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Transform: [ AWS::LanguageExtensions, AWS::Serverless-2016-10-31 ]
+Transform: [AWS::LanguageExtensions, AWS::Serverless-2016-10-31]
 Description: Digital Identity IPV CRI Ipv-Cri-Check-Hmrc-Smoke-Tests API
 
 Parameters:
   Environment:
     Type: String
     Default: dev
-    AllowedValues: [ dev, localdev, build, staging, integration, production ]
+    AllowedValues: [dev, localdev, build, staging, integration, production]
     ConstraintDescription: Must be dev, localdev, build, staging, integration or production
   CodeSigningConfigArn:
     Type: String
@@ -19,11 +19,11 @@ Parameters:
     Default: "false"
 
 Conditions:
-  UsePermissionsBoundary: !Not [ !Equals [ !Ref PermissionsBoundary, "" ] ]
-  EnforceCodeSigning: !Not [ !Equals [ !Ref CodeSigningConfigArn, "" ] ]
-  IsNotDevEnvironment: !Not [ !Equals [ !Ref Environment, dev ] ]
+  UsePermissionsBoundary: !Not [!Equals [!Ref PermissionsBoundary, ""]]
+  EnforceCodeSigning: !Not [!Equals [!Ref CodeSigningConfigArn, ""]]
+  IsNotDevEnvironment: !Not [!Equals [!Ref Environment, dev]]
   DeployAlarms: !Or
-    - !Equals [ !Ref DeployAlarmsInDevEnvironment, "true" ]
+    - !Equals [!Ref DeployAlarmsInDevEnvironment, "true"]
     - !Condition IsNotDevEnvironment
 
 Globals:
@@ -31,8 +31,9 @@ Globals:
     Timeout: 30
     CodeUri: ..
     Runtime: nodejs22.x
-    Architectures: [ arm64 ]
-    PermissionsBoundary: !If [ UsePermissionsBoundary, !Ref PermissionsBoundary, !Ref AWS::NoValue ]
+    Architectures: [arm64]
+    PermissionsBoundary:
+      !If [UsePermissionsBoundary, !Ref PermissionsBoundary, !Ref AWS::NoValue]
     Environment:
       Variables:
         NODE_OPTIONS: --enable-source-maps
@@ -135,7 +136,11 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       PermissionsBoundary:
-        !If [ UsePermissionsBoundary, !Ref PermissionsBoundary, !Ref AWS::NoValue ]
+        !If [
+          UsePermissionsBoundary,
+          !Ref PermissionsBoundary,
+          !Ref AWS::NoValue,
+        ]
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -180,11 +185,18 @@ Resources:
       BuildMethod: esbuild
       BuildProperties:
         Sourcemap: true
+        Format: esm
+        OutExtension:
+          - .js=.mjs
+        Platform: node
+        Banner:
+          - js=import { createRequire } from 'module'; const require = createRequire(import.meta.url);
     Properties:
       Timeout: 60
       Handler: lambdas/canary-runner/src/canary-runner-handler.lambdaHandler
-      FunctionName: !Select [ 3, !Split [ "/", !Ref CanaryRunnerFunctionLogGroup ] ]
-      CodeSigningConfigArn: !If [ EnforceCodeSigning, !Ref CodeSigningConfigArn, !Ref AWS::NoValue ]
+      FunctionName: !Select [3, !Split ["/", !Ref CanaryRunnerFunctionLogGroup]]
+      CodeSigningConfigArn:
+        !If [EnforceCodeSigning, !Ref CodeSigningConfigArn, !Ref AWS::NoValue]
       LoggingConfig:
         LogGroup: !Ref CanaryRunnerFunctionLogGroup
       Policies:
@@ -220,7 +232,7 @@ Resources:
         Expression: rate(15 minutes)
       RunConfig:
         EnvironmentVariables:
-           ENVIRONMENT: !Ref Environment
+          ENVIRONMENT: !Ref Environment
       Tags:
         - Key: Blueprint
           Value: canaryRecorder

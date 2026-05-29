@@ -1,5 +1,6 @@
 {
   "name": "canary-runner",
+  "type": "module",
   "description": "",
   "scripts": {
     "lint": "eslint .",

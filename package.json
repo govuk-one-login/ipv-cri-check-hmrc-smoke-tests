@@ -1,5 +1,6 @@
 {
   "name": "ipv-cri-check-hmrc-smoke-tests",
+  "type": "module",
   "description": "",
   "workspaces": [
     "lambdas/*"
