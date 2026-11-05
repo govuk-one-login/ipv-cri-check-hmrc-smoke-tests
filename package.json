@@ -27,14 +27,14 @@
     "@eslint/js": "^10.0.1",
     "@tsconfig/node22": "^22.0.5",
     "@types/aws-lambda": "^8.10.126",
-    "@vitest/coverage-v8": "4.1.11",
-    "eslint": "10.4.0",
+    "@vitest/coverage-v8": "5.1.0",
+    "eslint": "10.14.0",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.6.0",
     "prettier": "^3.8.3",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.5",
     "typescript-eslint": "^8.60.0",
-    "vitest": "4.1.11"
+    "vitest": "5.1.0"
   }
 }
